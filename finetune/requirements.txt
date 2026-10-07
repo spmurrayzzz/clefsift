@@ -1,0 +1,12 @@
+clef-finetune @ git+https://github.com/MersivMedia/clef-finetune.git@c83f7bc1acc23c81ad0de838510c59c48bf60c79
+torch==2.14.1
+torchvision==0.29.1
+transformers==5.19.0
+peft==0.21.2
+huggingface-hub==1.33.0
+safetensors==0.8.0
+accelerate==1.15.0
+numpy==2.4.6
+pillow==12.3.0
+pyyaml==6.0.3
+tokenizers==0.23.2
