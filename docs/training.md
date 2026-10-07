@@ -113,6 +113,10 @@ It uses provider sampling defaults without a sampling seed.
 Use distinct, fixed model IDs for development and held-out generation.
 The API must return the requested model ID, JSON output, and a complete assistant response.
 An alias that resolves to another response ID will fail the identity check.
+Development and holdout tasks for the same validation parent share one identical prompt.
+A real API call sends that prompt to two different models, which is intended.
+Key any replay or cache of saved generations on both the prompt and the model ID.
+A prompt-only cache serves the development output to the holdout task and records the wrong generator.
 
 Set these environment variables:
 
