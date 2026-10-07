@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ClefSift</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="mark"></span>
+      <span>ClefSift</span>
+    </div>
+    <button id="open-options" title="Settings" aria-label="Settings">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h4m4 0h8M4 12h9m4 0h3M4 18h2m4 0h10"/><rect x="8" y="4" width="4" height="4" rx="1"/><rect x="13" y="10" width="4" height="4" rx="1"/><rect x="6" y="16" width="4" height="4" rx="1"/></svg>
+    </button>
+  </header>
+
+  <div id="setup" class="setup hidden">
+    <p>Set a server URL and model first. The API key is optional.</p>
+    <button id="setup-open-options">Open settings</button>
+  </div>
+
+  <section id="scanner">
+    <textarea id="text" placeholder="Paste text to check for AI generation..." spellcheck="false"></textarea>
+    <div class="scan-row">
+      <span id="word-count">0 words</span>
+      <button id="scan" disabled>Check text</button>
+    </div>
+    <div id="result" class="hidden"></div>
+  </section>
+
+  <section id="history-section">
+    <h2>Recent checks</h2>
+    <ul id="history"></ul>
+    <p id="history-empty" class="empty">No checks yet.</p>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

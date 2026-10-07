@@ -1,0 +1,104 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { color-scheme: dark; }
+body {
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #e9e5df;
+  background: #15191d;
+}
+main { max-width: 744px; margin: 0 auto; padding: 44px 24px 56px; }
+.page-header { margin-bottom: 28px; }
+.brand { display: flex; align-items: center; gap: 11px; }
+.page-label { padding-left: 12px; border-left: 1px solid #505a65; color: #b0b8c1; font-size: 14px; }
+h1 { font-size: 25px; line-height: 1.3; font-weight: 650; letter-spacing: -.7px; }
+.page-header > p { margin-top: 9px; color: #b0b8c1; font-size: 14px; }
+#form { display: grid; gap: 16px; }
+.card { padding: 22px 24px; border: 1px solid #343b43; border-radius: 14px; background: #1d2226; }
+.card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+h2 { font-size: 15px; line-height: 22px; font-weight: 650; letter-spacing: -.15px; }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 3px 9px;
+  border: 1px solid #414852; border-radius: 20px; color: #b0b8c1; font-size: 11px; font-weight: 500;
+}
+.status-pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.status-pill[data-state="ok"] { color: #86efac; background: #1c3028; border-color: #355e49; }
+.status-pill[data-state="error"] { color: #fda4af; background: #342126; border-color: #70404b; }
+.status-pill[data-state="checking"] { color: #c7d2fe; background: #272744; border-color: #51528a; }
+.field { margin-top: 18px; }
+.field > label { display: block; margin-bottom: 7px; font-size: 12.5px; font-weight: 550; }
+.optional { margin-left: 5px; color: #b0b8c1; font-size: 11.5px; font-weight: 400; }
+input[type="text"], input[type="password"], select {
+  width: 100%; min-width: 0; height: 42px; border: 1px solid #505a65; border-radius: 8px;
+  padding: 0 12px; background: #15191d; color: #e9e5df; font: inherit; font-size: 13px;
+}
+select { padding-right: 8px; cursor: pointer; text-overflow: ellipsis; }
+input::placeholder { color: #b0b8c1; opacity: 1; }
+input:focus, select:focus { border-color: #a5b4fc; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 3px; }
+input[type="text"]:disabled, input[type="password"]:disabled, select:disabled { background: #252c33; color: #b0b8c1; cursor: default; }
+.hint { display: block; margin-top: 7px; color: #b0b8c1; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.model-row { display: flex; align-items: center; gap: 9px; }
+.model-row select { flex: 1; }
+#load-models { flex: none; }
+#model-status { min-height: 18px; }
+#model-status[data-state="ok"] { color: #86efac; }
+#model-status[data-state="error"] { color: #fda4af; }
+#model-status[data-state="warning"] { color: #fcd68a; }
+#model-status[data-state="loading"] { color: #c7d2fe; }
+button {
+  min-height: 42px; padding: 0 15px; border: 1px solid transparent; border-radius: 8px;
+  font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer;
+}
+.primary { background: #4f46e5; color: #fff; }
+.primary:hover { background: #5c53ed; }
+.secondary { background: #252c33; border-color: #505a65; color: #e9e5df; }
+.secondary:hover { background: #303840; border-color: #65717e; }
+button:disabled { background: #303740; border-color: #414852; color: #b0b8c1; cursor: default; }
+.form-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 2px 0; }
+#unsaved-status { color: #b0b8c1; font-size: 12px; }
+.action-buttons { display: flex; align-items: center; gap: 9px; }
+#auto { margin-top: 28px; }
+.section-note { color: #b0b8c1; font-size: 11.5px; text-align: right; }
+.toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) 36px; align-items: center; gap: 24px; padding-top: 19px; }
+.toggle-row + .toggle-row { margin-top: 18px; border-top: 1px solid #343b43; }
+.toggle-row input[type="checkbox"] {
+  appearance: none; grid-column: 2; grid-row: 1; width: 36px; height: 22px;
+  border: 1px solid #65717e; border-radius: 12px; background: #343c44; cursor: pointer;
+}
+.toggle-row input[type="checkbox"]::before {
+  content: ""; display: block; width: 16px; height: 16px; margin: 2px;
+  border-radius: 50%; background: #e9e5df;
+}
+.toggle-row input[type="checkbox"]:checked { border-color: #a5b4fc; background: #a5b4fc; }
+.toggle-row input[type="checkbox"]:checked::before { transform: translateX(14px); background: #1d2226; }
+.toggle-row label { grid-column: 1; grid-row: 1; cursor: pointer; }
+.toggle-title { display: block; font-size: 13.5px; font-weight: 550; }
+.toggle-row .hint { margin-top: 4px; }
+.toggle-row input:disabled { cursor: default; opacity: .5; }
+.toggle-row input:disabled + label { color: #b0b8c1; cursor: default; }
+#status { display: none; margin-top: 16px; padding: 13px 16px; border-radius: 10px; font-size: 12.5px; overflow-wrap: anywhere; }
+#status.show { display: block; }
+#status.ok { background: #1c3028; color: #86efac; border: 1px solid #355e49; }
+#status.err { background: #342126; color: #fda4af; border: 1px solid #70404b; }
+#status.info { background: #272744; color: #c7d2fe; border: 1px solid #51528a; }
+#status code { font: 12px/1.5 ui-monospace, monospace; background: #00000038; border-radius: 4px; padding: 1px 4px; }
+.privacy-note { margin-top: 18px; color: #b0b8c1; text-align: center; font-size: 11.5px; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: no-preference) {
+  button, input, select { transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease; }
+  .toggle-row input[type="checkbox"]::before { transition: transform 160ms ease; }
+}
+@media (max-width: 560px) {
+  main { padding: 28px 16px 40px; }
+  .card { padding: 20px; }
+  .form-actions { align-items: stretch; flex-direction: column; gap: 12px; }
+  .action-buttons { justify-content: flex-end; }
+  .model-row { flex-wrap: wrap; }
+  .model-row select { flex-basis: 100%; }
+  .section-note { max-width: 110px; }
+}
+@media (max-width: 360px) {
+  main { padding-right: 12px; padding-left: 12px; }
+  .card { padding: 16px; }
+  .action-buttons { flex-direction: column-reverse; align-items: stretch; }
+  .toggle-row { gap: 16px; }
+}

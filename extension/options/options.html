@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClefSift - Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <div class="brand"><h1>ClefSift</h1><span class="page-label">Settings</span></div>
+      <p>Connect a model and set up your LinkedIn feed.</p>
+    </header>
+
+    <form id="form">
+      <section class="card" aria-labelledby="connection-heading">
+        <div class="card-heading">
+          <h2 id="connection-heading">Connection</h2>
+          <span id="connection-status" class="status-pill" data-state="idle" role="status">Not tested</span>
+        </div>
+        <div class="field">
+          <label for="base-url">Server URL</label>
+          <input id="base-url" type="text" placeholder="http://127.0.0.1:8000/v1" spellcheck="false" autocomplete="off" aria-describedby="server-hint">
+          <p id="server-hint" class="hint">The address of your local or hosted model server.</p>
+        </div>
+        <div class="field">
+          <label for="api-key">API key <span class="optional">Optional</span></label>
+          <input id="api-key" type="password" placeholder="Enter an API key" spellcheck="false" autocomplete="off" aria-describedby="key-hint">
+          <p id="key-hint" class="hint">Leave blank if your server does not require a key.</p>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="model-heading">
+        <div class="card-heading"><h2 id="model-heading">Model</h2></div>
+        <div class="field">
+          <label for="model-select">Model to use</label>
+          <div class="model-row">
+            <select id="model-select" aria-describedby="model-status">
+              <option value="" disabled selected>Choose a model</option>
+              <option value="__custom__">Custom model…</option>
+            </select>
+            <button type="button" id="load-models" class="secondary">Refresh models</button>
+          </div>
+          <p id="model-status" class="hint" data-state="empty" role="status">Refresh to see the models available from your server.</p>
+        </div>
+        <div id="custom-model-field" class="field" hidden>
+          <label for="model">Model ID</label>
+          <input id="model" type="text" placeholder="Enter the exact model ID" spellcheck="false" autocomplete="off" aria-describedby="custom-model-hint">
+          <p id="custom-model-hint" class="hint">Use the model name or path accepted by your server.</p>
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <p id="unsaved-status" role="status">No unsaved changes</p>
+        <div class="action-buttons">
+          <button type="button" id="test" class="secondary">Test connection</button>
+          <button type="submit" id="save" class="primary">Save settings</button>
+        </div>
+      </div>
+    </form>
+
+    <div id="status" role="status" aria-live="polite"></div>
+
+    <section id="auto" class="card" aria-labelledby="feed-heading">
+      <div class="card-heading">
+        <h2 id="feed-heading">LinkedIn feed</h2>
+        <span class="section-note">Changes apply immediately</span>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="linkedin-feed-toggle" aria-labelledby="feed-toggle-title" aria-describedby="feed-hint">
+        <label for="linkedin-feed-toggle">
+          <span id="feed-toggle-title" class="toggle-title">Check posts automatically</span>
+          <span id="feed-hint" class="hint">Add a result beside each author as you browse. Requires LinkedIn access.</span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="dim-ai-toggle" aria-labelledby="dim-toggle-title" aria-describedby="dim-hint">
+        <label for="dim-ai-toggle">
+          <span id="dim-toggle-title" class="toggle-title">Dim AI and AI-assisted posts</span>
+          <span id="dim-hint" class="hint">Keep them in your feed with less emphasis. Hover over a post to read it normally.</span>
+        </label>
+      </div>
+    </section>
+    <p class="privacy-note">Your connection settings are saved in this browser.</p>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

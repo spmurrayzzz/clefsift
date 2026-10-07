@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "ClefSift",
+  "version": "0.1.0",
+  "description": "Check text and LinkedIn posts for AI generation with ClefSift or another Jev/SystemOne-compatible model server.",
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "ClefSift",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
