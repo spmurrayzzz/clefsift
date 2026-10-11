@@ -1,5 +1,11 @@
 # Training
 
+For the next human-only, general-purpose corpus, use the separate [general corpus workflow](general-corpus.md).
+It uses Pi for every configured generator route and disjoint train, validation, and final-holdout groups.
+Configured generators share a queue. Contributions depend on throughput, not the plan's historical Qwen/Luna strata.
+Source/domain/class/split/parent quotas remain unchanged. Per-attempt dispatch records bind actual provider/model identities to the immutable task and plan.
+The commands below retain the original parent labels and paired held-out-model protocol.
+
 This guide repeats the ClefSift process, not the exact frozen examples or reported scores.
 The repo does not distribute training text or generated examples.
 Different generators, package versions, and hardware can change the results.
