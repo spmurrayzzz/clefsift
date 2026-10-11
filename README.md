@@ -49,7 +49,7 @@ The mock returns synthetic results. It does not detect AI text.
 
 `tools/corpus` controls generation from one JSON config. Use `start`, `status`, and `stop` with `--config /path/to/corpus.json`; the default is `./corpus.json`. Stop returns immediately, or use `stop --wait`. The config alone sets models and worker counts. No approval file, code-hash update, or training environment is required. See [corpus operation](docs/general-corpus.md#start-stop-and-status).
 
-The simplified public export is [spmurrayzzz/clefsift-cleaned](https://huggingface.co/datasets/spmurrayzzz/clefsift-cleaned): 90,784 pooled `{text, label}` rows in train, validation, then holdout file order. It drops groups, splits, and provenance, so it is not a training input.
+The simplified public export is [spmurrayzzz/clefsift-cleaned](https://huggingface.co/datasets/spmurrayzzz/clefsift-cleaned): 90,784 pooled `{text, label}` rows in train, validation, then holdout file order. It drops groups, splits, and provenance, so it is not a training input. The final holdout is public but stays out of training and selection.
 
 ## Train your model
 

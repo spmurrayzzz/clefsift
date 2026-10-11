@@ -18,6 +18,7 @@ Read [README.md](README.md) and the affected guide in [docs/](docs/) before chan
 - Ask before generation, GPU jobs, large downloads, or other long jobs. Agree on numeric resource limits first.
 - Do not delete datasets, checkpoints, logs, reports, or model intermediates. Preserve at least 30 GiB of free disk for training.
 - Keep corpus text, generated examples, credentials, environments, and weights out of Git. Never add proprietary extension code or assets.
+- Keep private hostnames, network addresses, filesystem paths, hardware inventories, and run details out of Git and public docs. Use placeholders in examples. Keep operational notes outside the repository.
 
 The corpus control path is now one config-driven generation runner in `control_corpus.py`; `build_corpus.py` is removed. `tools/corpus` uses a non-virtual Python 3.11 selected through uv, without downloads or installs. It does not use the legacy training environment. Default config is `./corpus.json`; explicit `--config` and `CLEFSIFT_CORPUS_CONFIG` work, with paths relative to the config. `concurrency` is the sole model/worker authority. Legacy approval, hash, import, model, and interpreter config fields are ignored. No approval file or build-contract check may be reintroduced. Each run executes a source/config snapshot; hashes are audit metadata. Keep PID birth/owner/session checks and duplicate-run locks. `stop` returns immediately; `--wait` waits visibly. Status uses the terminal summary, not stale sampled counters. Existing clocks and cumulative attempt counts survive restarts; final construction requires explicit `--construct-final`. Preparation and assembly remain separate; this CLI never trains.
 
@@ -29,6 +30,8 @@ Run `node --check` on changed JavaScript files.
 Run Python syntax checks and CLI help checks without model loading.
 Use `tools/mock_server.py` for interface checks.
 Do not run training or inference as a routine syntax check.
+
+Do not start training or replace training dependencies without explicit approval. Leave existing jobs alone unless instructed.
 
 ## Release state
 
