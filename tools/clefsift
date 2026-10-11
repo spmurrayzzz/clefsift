@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import math
+import os
 import shutil
 import subprocess
 import sys
@@ -97,7 +99,7 @@ def require_modules(python, needs):
 def found(program, directory=None):
     if directory is not None:
         candidate = directory / program
-        return candidate.is_file()
+        return candidate.is_file() and os.access(candidate, os.X_OK)
     return shutil.which(program) is not None
 
 
@@ -122,6 +124,8 @@ def cmd_init(argv):
     for route, count in workers.items():
         if not isinstance(route, str) or "/" not in route or type(count) is not int or count <= 0:
             parser.error("Concurrency maps full provider/model routes to positive worker counts")
+    if args.generation_hours is not None and not math.isfinite(args.generation_hours):
+        parser.error("Generation hours must be finite")
     if args.generation_hours is not None and args.generation_hours <= 0:
         parser.error("Generation hours must be positive")
     if not 0 < args.request_timeout <= 600:
@@ -144,6 +148,7 @@ def cmd_init(argv):
         config["max_attempts"] = args.max_attempts
     if args.pi_bin_dir is not None:
         config["pi_bin_dir"] = str(args.pi_bin_dir.expanduser())
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n")
     checks = [
         ("config", str(config_path)),
@@ -200,6 +205,9 @@ def main():
     elif verb == "evaluate":
         delegate(python, FINETUNE / "evaluate.py", rest)
     elif verb == "demo":
+        if wants_help(rest):
+            print("usage: clefsift demo\n\nRun the local mock server.")
+            return
         if rest:
             fail("demo takes no arguments")
         delegate(python, TOOLS / "mock_server.py", rest)
