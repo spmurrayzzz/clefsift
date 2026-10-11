@@ -78,6 +78,7 @@ See [results and limits](docs/results.md) before you interpret these figures.
 |---|---|
 | `extension/` | Manifest V3 extension, with no dependencies or build step |
 | `finetune/` | Preparation, generation, training, and evaluation tools |
+| `tools/clefsift` | Single entry point: `init`, `corpus`, `train`, `evaluate`, `demo` |
 | `tools/mock_server.py` | Local interface demonstration |
 | `docs/` | [Extension and privacy](docs/extension.md), [training](docs/training.md), [serving](docs/serving.md), [results](docs/results.md) |
 

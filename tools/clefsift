@@ -1,0 +1,211 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+
+REPO = Path(__file__).resolve().parent.parent
+FINETUNE = REPO / "finetune"
+TOOLS = REPO / "tools"
+
+INGEST = ("pyarrow", "py7zr")
+TOKENIZER = ("transformers",)
+TRAINING = ("torch", "transformers", "peft", "clef_finetune")
+
+CORPUS_STAGES = {
+    "acquire": ("acquire.py", False, ()),
+    "import": ("import_sources.py", False, INGEST),
+    "prepare": ("corpus.py", True, TOKENIZER),
+    "plan": ("corpus.py", True, ()),
+    "run": ("corpus.py", True, ()),
+    "start": ("control_corpus.py", True, ()),
+    "stop": ("control_corpus.py", True, ()),
+    "status": ("control_corpus.py", True, ()),
+    "assemble": ("corpus.py", True, TOKENIZER),
+}
+
+TOP_HELP = """usage: clefsift [--python PATH] <command> ...
+
+Single entry point for the general corpus workflow.
+
+commands:
+  init                Write a corpus config and check the host
+  corpus <stage>      acquire, import, prepare, plan, run, start, stop, status, assemble
+  train               Run reference training and validation-only selection
+  evaluate <command>  summarize, http, compare
+  demo                Run the local mock server
+
+Use "clefsift <command> --help" for options. Help never loads models."""
+
+CORPUS_HELP = """usage: clefsift [--python PATH] corpus <stage> ...
+
+stages:
+  acquire             Download approved catalog files
+  import              Build human candidates (needs ingest readers)
+  prepare             Normalize sources and freeze parents (needs tokenizer)
+  plan                Freeze generation tasks without model calls
+  run                 Run bounded generation in the foreground
+  start               Start detached generation from corpus.json
+  stop                Drain detached generation
+  status              Inspect detached generation
+  assemble            Freeze the dataset (needs tokenizer)
+
+Use "clefsift corpus <stage> --help" for options."""
+
+
+def fail(message):
+    print(f"clefsift: {message}", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def wants_help(argv):
+    return bool({"-h", "--help"} & set(argv))
+
+
+def delegate(python, script, argv):
+    result = subprocess.run([str(python), str(script), *argv])
+    raise SystemExit(result.returncode)
+
+
+def has_modules(python, needs):
+    probe = "import importlib.util,sys;sys.exit(0 if all(importlib.util.find_spec(n) for n in sys.argv[1:]) else 1)"
+    result = subprocess.run([str(python), "-c", probe, *needs], capture_output=True)
+    return result.returncode == 0
+
+
+def require_modules(python, needs):
+    if not needs or has_modules(python, needs):
+        return
+    if needs == INGEST:
+        print("clefsift: missing approved readers pyarrow and py7zr.", file=sys.stderr)
+        print("Create the ingest environment once:", file=sys.stderr)
+        print("  uv venv --python 3.11 \"$WORK/ingest-venv\"", file=sys.stderr)
+        print("  uv pip install --python \"$WORK/ingest-venv/bin/python\" -r finetune/requirements-ingest.txt", file=sys.stderr)
+        print("Then re-run with --python \"$WORK/ingest-venv/bin/python\".", file=sys.stderr)
+    elif needs == TOKENIZER:
+        print("clefsift: missing transformers for token counting.", file=sys.stderr)
+        print("Re-run with --python and the training environment Python (see docs/training.md section 1).", file=sys.stderr)
+    else:
+        print("clefsift: missing training packages.", file=sys.stderr)
+        print("Re-run with --python and the training environment Python (see docs/training.md section 1).", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def found(program, directory=None):
+    if directory is not None:
+        candidate = directory / program
+        return candidate.is_file()
+    return shutil.which(program) is not None
+
+
+def cmd_init(argv):
+    parser = argparse.ArgumentParser(prog="clefsift init", description="Write a corpus config and check the host.")
+    parser.add_argument("--work-dir", type=Path, required=True)
+    parser.add_argument("--config", type=Path, help="Config path; defaults to <work-dir>/corpus.json.")
+    parser.add_argument("--concurrency", required=True, help="JSON map of full provider/model routes to worker counts.")
+    parser.add_argument("--generation-hours", type=float, help="First generation clock; restarts never reset it.")
+    parser.add_argument("--request-timeout", type=float, default=120)
+    parser.add_argument("--max-attempts", type=int, help="Optional cumulative attempt limit across launches.")
+    parser.add_argument("--pi-bin-dir", type=Path, help="Directory with node and pi when they are absent from PATH.")
+    parser.add_argument("--model", type=Path, help="Optional pinned model snapshot; checked but not stored.")
+    parser.add_argument("--force", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        workers = json.loads(args.concurrency)
+    except json.JSONDecodeError:
+        parser.error("Concurrency must be valid JSON")
+    if not isinstance(workers, dict) or not workers:
+        parser.error("Concurrency must be a nonempty map")
+    for route, count in workers.items():
+        if not isinstance(route, str) or "/" not in route or type(count) is not int or count <= 0:
+            parser.error("Concurrency maps full provider/model routes to positive worker counts")
+    if args.generation_hours is not None and args.generation_hours <= 0:
+        parser.error("Generation hours must be positive")
+    if not 0 < args.request_timeout <= 600:
+        parser.error("Request timeout must be within 600 seconds")
+    if args.max_attempts is not None and args.max_attempts <= 0:
+        parser.error("Max attempts must be positive")
+    work = args.work_dir.expanduser().resolve()
+    work.mkdir(parents=True, exist_ok=True)
+    timeout = int(args.request_timeout) if float(args.request_timeout).is_integer() else args.request_timeout
+    hours = args.generation_hours
+    if hours is not None and hours.is_integer():
+        hours = int(hours)
+    config_path = args.config.expanduser() if args.config else work / "corpus.json"
+    if config_path.exists() and not args.force:
+        parser.error(f"Config exists; use --force to overwrite: {config_path}")
+    config = {"work_dir": str(work), "concurrency": workers, "request_timeout": timeout}
+    if hours is not None:
+        config["generation_hours"] = hours
+    if args.max_attempts is not None:
+        config["max_attempts"] = args.max_attempts
+    if args.pi_bin_dir is not None:
+        config["pi_bin_dir"] = str(args.pi_bin_dir.expanduser())
+    config_path.write_text(json.dumps(config, indent=2) + "\n")
+    checks = [
+        ("config", str(config_path)),
+        ("work_dir", str(work)),
+        ("python", f"{sys.version.split()[0]} {'ok' if sys.version_info >= (3, 11) else 'needs 3.11 or newer'}"),
+        ("uv", "found" if found("uv") else "missing; install uv for managed Python"),
+        ("pi", "found" if found("pi", args.pi_bin_dir) else "missing; install pi or set pi_bin_dir"),
+        ("node", "found" if found("node", args.pi_bin_dir) else "missing; install node or set pi_bin_dir"),
+    ]
+    if args.model is not None:
+        checks.append(("model", str(args.model) if args.model.exists() else f"{args.model} (absent)"))
+    for name, result in checks:
+        print(f"{name}: {result}")
+    print(f"next: export CLEFSIFT_CORPUS_CONFIG={config_path}")
+    print("next: clefsift corpus acquire --help")
+
+
+def cmd_corpus(python, argv):
+    if not argv or wants_help(argv[:1]):
+        print(CORPUS_HELP)
+        return
+    stage, rest = argv[0], argv[1:]
+    if stage not in CORPUS_STAGES:
+        fail(f"unknown corpus stage: {stage}")
+    module, keep, needs = CORPUS_STAGES[stage]
+    if not wants_help(rest):
+        require_modules(python, needs)
+    head = [stage] if keep else []
+    delegate(python, FINETUNE / module, [*head, *rest])
+
+
+def main():
+    argv = sys.argv[1:]
+    python = Path(sys.executable)
+    if argv[:1] == ["--python"]:
+        if len(argv) < 3:
+            fail("--python needs a path and a command")
+        python = Path(argv[1])
+        if not python.is_file():
+            fail(f"python not found: {python}")
+        argv = argv[2:]
+    if not argv or wants_help(argv[:1]):
+        print(TOP_HELP)
+        return
+    verb, rest = argv[0], argv[1:]
+    if verb == "init":
+        cmd_init(rest)
+    elif verb == "corpus":
+        cmd_corpus(python, rest)
+    elif verb == "train":
+        if not wants_help(rest):
+            require_modules(python, TRAINING)
+        delegate(python, FINETUNE / "run.py", rest)
+    elif verb == "evaluate":
+        delegate(python, FINETUNE / "evaluate.py", rest)
+    elif verb == "demo":
+        if rest:
+            fail("demo takes no arguments")
+        delegate(python, TOOLS / "mock_server.py", rest)
+    else:
+        fail(f"unknown command: {verb}")
+
+
+if __name__ == "__main__":
+    main()

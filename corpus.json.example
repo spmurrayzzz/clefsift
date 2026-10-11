@@ -1,0 +1,9 @@
+{
+  "work_dir": "./corpus-work",
+  "concurrency": {
+    "local/qwen3.8-27b": 8,
+    "openai-codex/gpt-6-luna": 8
+  },
+  "generation_hours": 72,
+  "request_timeout": 120
+}

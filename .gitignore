@@ -20,6 +20,8 @@ selection.json
 summary.json
 environment.json
 config.yaml
+corpus.json
+generation-control.json
 fixed_metrics.json
 /tools/llama.cpp/
 data/
