@@ -142,7 +142,7 @@ The dataset loader retains the existing [recipe compatibility registry](../finet
 
 AI-assisted outputs receive length, number-retention, and lexical checks. Mixed outputs insert a generated paragraph at a recorded sentence boundary while preserving the human substrings. AI outputs alternate complete rewrites and fresh drafts conditioned on a supplied brief, headline, or short extract. These are process labels. Checks do not prove semantic fidelity or authorship.
 
-## Construct and seal the new final holdout
+## Construct the new final holdout
 
 Freeze the recipe before final construction. Do not inspect final prose or use its generation failures to revise prompts or acceptance rules. Construction uses the same rules as development and does not score a detector.
 
@@ -158,13 +158,23 @@ python finetune/corpus.py assemble --parents "$WORK/parents" \
 
 Assembly requires complete four-class groups. It rechecks response identities, artifact hashes, full-request tokens, duplicates, and exact domain and historical planned-route parent quotas. A failed group can only use a matching reserve. A shortfall creates an audit failure, not a frozen manifest.
 
-Sealing is a protocol and hash boundary, not filesystem access control. The final parents, requests, responses, and `final-holdout.jsonl` remain accessible to the file owner. Keep them outside development inspections.
+Sealing is a protocol and hash boundary, not filesystem access control. The final parents, requests, responses, and `final-holdout.jsonl` remain accessible to the file owner. Keep them outside development inspections. The completed holdout below was later published; treat it as public but excluded from training, selection, and prompt or acceptance revision.
 
 ## Assembly from existing development outputs
 
 `assemble --from-development` treats exact size/domain quotas as advisory. It retains all valid complete four-class development groups and assigns about 10% of training provenance components to holdout by an ID hash, before output quality checks. All variants and connected source identities stay together; validation is unchanged. This mode does not generate examples or load the original final-parent panel.
 
 The manifest records `selection_policy: all-valid-development-groups-v1`, actual groups and domain/model contributions, historical targets, and the holdout selection method. Default validation does not open or hash the final corpus. Final scoring requires separate approval; the public holdout stays out of training and selection.
+
+## Public text/label export
+
+`export` validates a frozen dataset then writes pooled `{text, label}` JSONL: train rows, validation rows, then holdout rows, each in frozen file order. Lines use compact UTF-8 JSON with the `text` key first. Groups, splits, and provenance are dropped, so the export is not a training input. Holdout rows are included, which requires explicit `--include-final`:
+
+```bash
+clefsift corpus export --frozen "$WORK/frozen" --out "$WORK/clefsift-cleaned.jsonl" --include-final
+```
+
+This command reproduces [spmurrayzzz/clefsift-cleaned](https://huggingface.co/datasets/spmurrayzzz/clefsift-cleaned) byte for byte from its frozen source dataset.
 
 ## Start, stop, and status
 
