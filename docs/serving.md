@@ -72,7 +72,7 @@ Reload LinkedIn after a model change.
 
 ## Export a new checkpoint
 
-[Training](training.md) automatically exports the selected checkpoint into the run's `release/` directory. Use the command below only to repeat an export or export a historical checkpoint.
+[Training](training.md) automatically exports the selected checkpoint to `<output-dir>/<timestamp>-<id>/release/`. Its `--output-dir` option selects the parent for the whole run. The log prints the full model destination as `Release:`. Use the command below only to repeat an export or export a historical checkpoint.
 Keep the original pinned reference snapshot in `CLEFSIFT_MODEL` and the completed run directory in `RUN`.
 
 CPU merging uses Transformers and PEFT in the training environment. It needs enough RAM for the backbone and adapter merge. It accepts selected Unsloth checkpoints and historical adapter checkpoints.
@@ -86,6 +86,8 @@ uv run --no-sync tools/clefsift export --model "$CLEFSIFT_MODEL" \
   --checkpoint "$CLEFSIFT_CHECKPOINT" --out-dir releases/clefsift/reference \
   --minutes <approved-export-wall-minutes>
 ```
+
+The standalone export command uses `--out-dir` as the exact model destination, without a generated run name or `release/` suffix.
 
 The export command requires a finite FP32 checkpoint head and writes it unchanged alongside the merged BF16 backbone. It preserves the original reference encoder and tokenizer files. It merges on CPU, keeps previous artifacts, and does not load or score any dataset.
 Do not substitute Unsloth's default merged save: it converts most head weights to BF16.

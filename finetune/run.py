@@ -30,7 +30,10 @@ def main():
     parser = argparse.ArgumentParser(description="Train, select, and export Clef with Unsloth. Use torchrun for DDP.")
     parser.add_argument("--config", type=Path, default=Path(__file__).with_name("recipe-general.yaml"),
                         help="Training YAML. Paths resolve from this file.")
+    parser.add_argument("--model", type=Path, help="Local pinned Clef snapshot; overrides the recipe model path.")
     parser.add_argument("--data", type=Path, help="Text/label JSONL file or dataset checkout; overrides the recipe input.")
+    parser.add_argument("--output-dir", type=Path,
+                        help="Parent directory for prepared data, checkpoints, reports, and exports; overrides the recipe output_dir.")
     splits = parser.add_mutually_exclusive_group()
     splits.add_argument("--split", type=float, nargs=3, metavar=("TRAIN", "VALIDATION", "TEST"),
                         help="Runtime fractions for unsplit input; requires --seed.")
@@ -47,9 +50,9 @@ def main():
     config_path = args.config.resolve()
     try:
         config = yaml.safe_load(config_path.read_text())
-        model_path = Path(config["model"]["path"]).expanduser()
+        model_path = args.model.expanduser().resolve() if args.model is not None else Path(config["model"]["path"]).expanduser()
         data_source = args.data.expanduser().resolve() if args.data is not None else Path(config["data"].get("path") or config["data"]["directory"]).expanduser()
-        output_root = Path(config["output_dir"]).expanduser()
+        output_root = args.output_dir.expanduser().resolve() if args.output_dir is not None else Path(config["output_dir"]).expanduser()
         minutes = config["minutes"]
     except (OSError, KeyError, TypeError, yaml.YAMLError) as error:
         parser.error(f"Invalid training recipe: {error}")

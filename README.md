@@ -53,15 +53,20 @@ The public dataset is [spmurrayzzz/clefsift-cleaned](https://huggingface.co/data
 
 ## Train your model
 
-[Training](docs/training.md) uses Unsloth `FastDecisionModel` and `DecisionTrainer`. Set the local model and output paths in the [recipe](finetune/recipe-general.yaml), then give it a dataset checkout or JSONL file:
+[Training](docs/training.md) uses Unsloth `FastDecisionModel` and `DecisionTrainer`. Choose the model, dataset, and output paths at runtime. They can use different disks:
 
 ```bash
 uv sync --locked --extra train
-uv run --no-sync tools/clefsift train --data /path/to/unsplit-data.jsonl \
+uv run --no-sync tools/clefsift train \
+  --model /path/to/clef \
+  --data /path/to/unsplit-data.jsonl \
+  --output-dir /path/to/runs \
   --split 0.8 0.1 0.1 --seed 42
 ```
 
-The example fractions mean train, validation, and test; they are supplied by the caller, not defaults. Each run prepares the splits on disk, trains, selects on validation, and exports the selected model. Use standard `torchrun` for multiple GPUs. Training and export do not start or replace a serving process.
+With `--output-dir /path/to/runs`, the finished model is `/path/to/runs/<timestamp>-<id>/release/`. Prepared data, checkpoints, and reports stay in the same run directory. The runner chooses the run name and `release/` subdirectory; the training command cannot set an exact final model directory.
+
+CLI paths override the [recipe](finetune/recipe-general.yaml) and resolve from the current directory. The example fractions mean train, validation, and test; they are supplied by the caller, not defaults. Each run prepares the splits on disk, trains, selects on validation, and exports the selected model. Use standard `torchrun` for multiple GPUs. Training and export do not start or replace a serving process.
 The new [general corpus workflow](docs/general-corpus.md) starts from human-only sources, generates through Pi, and keeps validation and final holdout separate.
 Every configured model generates remaining examples from a shared queue. Actual model contributions depend on throughput. The controller retries transient failures within the existing two-attempt limit; provider failures disable only that route. Each launch executes a source snapshot and preserves completed outputs and the original deadline. Generation does not automatically assemble data, start training, or access final-holdout text. Preparation and assembly interfaces remain separate in this first cleanup.
 [Export and serving](docs/serving.md) covers GGUF conversion and Q8 comparison.

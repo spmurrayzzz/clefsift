@@ -12,15 +12,17 @@ uv sync --locked --extra train
 
 Use a permitted local dataset and the pinned Cloudflare Clef snapshot. Training accepts a JSONL file with `text` and `label` fields, or a checkout containing exactly one JSONL file. It writes separate train and validation files before loading model weights. It does not require an input manifest or regenerate examples.
 
-Edit [recipe-general.yaml](../finetune/recipe-general.yaml):
+The [recipe](../finetune/recipe-general.yaml) supplies training settings and optional default paths:
 
-- `model.path`: local Clef snapshot at revision `2f3de3dd85f379784083b0814d997ab627200f0c`.
+- `model.path`: local Clef snapshot at revision `2f3de3dd85f379784083b0814d997ab627200f0c`. `--model` overrides it.
 - `data.path`: JSONL file or dataset checkout. `--data` overrides it.
-- `output_dir`: parent directory for new runs.
+- `output_dir`: parent directory for new runs. `--output-dir` overrides it.
 - `minutes`: total wall-time limit, including validation and export.
 - `train.num_train_epochs`: requested epochs.
 
-Paths resolve from the recipe file. Keep private paths in a local copy outside Git. The `train` section uses Hugging Face `TrainingArguments` names. The `lora` and `decision` sections use Unsloth argument names.
+Recipe paths resolve from the recipe file. CLI paths resolve from the current directory and can use different disks. Prepared data, checkpoints, reports, and exports stay under `--output-dir`; the source model and dataset remain in their original locations. No recipe edits are needed when CLI paths are supplied. Keep private paths in a local copy outside Git. The `train` section uses Hugging Face `TrainingArguments` names. The `lora` and `decision` sections use Unsloth argument names.
+
+Dependency and cache locations are separate from run output. Set `UV_PROJECT_ENVIRONMENT` and `UV_CACHE_DIR` before installation to choose the uv environment and cache directories. `HF_HOME` selects the Hugging Face cache. `TMPDIR` selects the temporary directory.
 
 ## Choose splits at runtime
 
@@ -48,10 +50,13 @@ The general recipe requires epochs. It cannot fall back to the historical 128-st
 
 ## Run
 
-Check available GPU memory and disk before starting. Do not stop another job to make room. Keep at least 30 GiB free in addition to checkpoint and export space.
+Check available GPU memory and disk before starting. Do not stop another job to make room. Keep at least 30 GiB free on the output filesystem in addition to checkpoint and export space.
 
 ```bash
-uv run --no-sync tools/clefsift train --data /path/to/examples.jsonl \
+uv run --no-sync tools/clefsift train \
+  --model /path/to/clef \
+  --data /path/to/examples.jsonl \
+  --output-dir /path/to/runs \
   --split 0.8 0.1 0.1 --seed 42
 ```
 
@@ -64,7 +69,15 @@ uv run --no-sync tools/clefsift train --config /path/to/recipe.yaml \
 
 Every invocation creates a new timestamped directory under `output_dir`. Rank zero prepares the selected splits onto disk and records runtime options, actual counts, source locators, and hashes. All workers then read only the prepared train and validation files. Original text and extra source fields remain unchanged. The source files stay untouched.
 
-The run trains, selects a checkpoint on validation, and exports the selected model to its `release/` directory. It preserves prior runs and failed artifacts. It does not deploy or restart a server. Existing internal dataset directories with a manifest remain supported.
+The run trains, selects a checkpoint on validation, and exports the selected model. With `--output-dir /path/to/runs`, the finished model is:
+
+```text
+/path/to/runs/<timestamp>-<id>/release/
+```
+
+This directory contains the merged BF16 weights, FP32 decision head, and tokenizer files. Prepared data, checkpoints, and reports stay in the same run directory. The runner generates `<timestamp>-<id>` and uses the fixed `release/` name. `--output-dir` selects the parent for the whole run, not an exact final model directory. The command prints the full destination as `Release:` after export.
+
+The run preserves prior runs and failed artifacts. It does not deploy or restart a server. Existing internal dataset directories with a manifest remain supported.
 
 ## Multiple GPUs
 
