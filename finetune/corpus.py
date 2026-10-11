@@ -995,6 +995,22 @@ def assemble(args):
         return {"stage": "frozen", "groups": frozen.get("actual_groups", manifest["target_groups"]), "excluded": dict(exclusions), "sealing": "logical-only; not an ACL"}
 
 
+def export(args):
+    require(args.include_final, "Export includes final-holdout rows; pass --include-final")
+    require(not args.out.exists(), "Output file must be new")
+    manifest = load(args.frozen / "manifest.json")
+    _, datasets = _validate_general_dataset(args.frozen, manifest, True)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with args.out.open("x", encoding="utf-8") as output:
+        for name in ("train.jsonl", "eval.jsonl", "final-holdout.jsonl"):
+            for row in datasets[name]:
+                line = json.dumps({"text": row["state"], "label": row["labels"]["classification"]}, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+                output.write(line + "\n")
+                count += 1
+    return {"stage": "exported", "rows": count, "sha256": file_hash(args.out), "out": str(args.out)}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build the separate human-only general corpus. No source resplitting, truncation, or final scoring.")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -1028,9 +1044,13 @@ def main():
     assembly.add_argument("--out-dir", type=Path, required=True)
     assembly.add_argument("--construct-final", action="store_true")
     assembly.add_argument("--from-development", action="store_true", help="Keep all valid development groups and hash-carve training provenance clusters into holdout; no generation.")
+    exporting = commands.add_parser("export", help="Write pooled text/label JSONL from a frozen dataset; includes the final holdout.")
+    exporting.add_argument("--frozen", type=Path, required=True)
+    exporting.add_argument("--out", type=Path, required=True)
+    exporting.add_argument("--include-final", action="store_true", help="Required: the export includes final-holdout rows.")
     args = parser.parse_args()
     try:
-        result = {"prepare": prepare, "plan": plan, "run": run, "assemble": assemble}[args.command](args)
+        result = {"prepare": prepare, "plan": plan, "run": run, "assemble": assemble, "export": export}[args.command](args)
     except (ValueError, OSError, KeyError, TypeError, pi_client.PiError) as exc:
         parser.exit(1, f"Corpus operation failed: {exc}. Existing artifacts were preserved.\n")
     print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))

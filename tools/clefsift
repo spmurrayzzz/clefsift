@@ -27,6 +27,7 @@ CORPUS_STAGES = {
     "stop": ("control_corpus.py", True, ()),
     "status": ("control_corpus.py", True, ()),
     "assemble": ("corpus.py", True, TOKENIZER),
+    "export": ("corpus.py", True, ()),
 }
 
 TOP_HELP = """usage: clefsift [--python PATH] <command> ...
@@ -35,7 +36,7 @@ Single entry point for the general corpus workflow.
 
 commands:
   init                Write a corpus config and check the host
-  corpus <stage>      acquire, import, prepare, plan, run, start, stop, status, assemble
+  corpus <stage>      acquire, import, prepare, plan, run, start, stop, status, assemble, export
   train               Run reference training and validation-only selection
   evaluate <command>  summarize, http, compare
   demo                Run the local mock server
@@ -54,6 +55,7 @@ stages:
   stop                Drain detached generation
   status              Inspect detached generation
   assemble            Freeze the dataset (needs tokenizer)
+  export              Write pooled text/label JSONL (includes final holdout)
 
 Use "clefsift corpus <stage> --help" for options."""
 
