@@ -14,7 +14,8 @@ import threading
 import time
 import uuid
 
-from common import GENERAL_WORKFLOW, MODEL_REVISION, file_hash, validate_dataset, write_json, write_jsonl
+from common import GENERAL_WORKFLOW, MODEL_REVISION, dataset_stage, file_hash, validate_dataset, write_json, write_jsonl
+from data import load_data, prepare_data, validate_splits
 from decision import build_items, checkpoint_hashes, load_checkpoint, summarize_logits
 from export import export_model
 
@@ -29,22 +30,35 @@ def main():
     parser = argparse.ArgumentParser(description="Train, select, and export Clef with Unsloth. Use torchrun for DDP.")
     parser.add_argument("--config", type=Path, default=Path(__file__).with_name("recipe-general.yaml"),
                         help="Training YAML. Paths resolve from this file.")
+    parser.add_argument("--data", type=Path, help="Text/label JSONL file or dataset checkout; overrides the recipe input.")
+    splits = parser.add_mutually_exclusive_group()
+    splits.add_argument("--split", type=float, nargs=3, metavar=("TRAIN", "VALIDATION", "TEST"),
+                        help="Runtime fractions for unsplit input; requires --seed.")
+    splits.add_argument("--split-rows", type=int, nargs=3, metavar=("TRAIN", "VALIDATION", "TEST"),
+                        help="Runtime row counts for ordered input; the declared test tail stays unread.")
+    parser.add_argument("--seed", type=int, help="Split and training seed; required with --split.")
     args = parser.parse_args()
+    try:
+        args.split, args.split_rows = validate_splits(args.split, args.split_rows, args.seed)
+    except ValueError as error:
+        parser.error(str(error))
     import yaml
 
     config_path = args.config.resolve()
     try:
         config = yaml.safe_load(config_path.read_text())
         model_path = Path(config["model"]["path"]).expanduser()
-        data_dir = Path(config["data"]["directory"]).expanduser()
+        data_source = args.data.expanduser().resolve() if args.data is not None else Path(config["data"].get("path") or config["data"]["directory"]).expanduser()
         output_root = Path(config["output_dir"]).expanduser()
         minutes = config["minutes"]
     except (OSError, KeyError, TypeError, yaml.YAMLError) as error:
         parser.error(f"Invalid training recipe: {error}")
-    model_path, data_dir, output_root = ((path if path.is_absolute() else config_path.parent / path).resolve()
-                                         for path in (model_path, data_dir, output_root))
+    model_path, data_source, output_root = ((path if path.is_absolute() else config_path.parent / path).resolve()
+                                           for path in (model_path, data_source, output_root))
     if type(minutes) not in (int, float) or not math.isfinite(minutes) or minutes <= 0:
         parser.error("minutes must be finite and positive")
+    if {"train_rows", "validation_rows"} & config["data"].keys():
+        parser.error("Remove data row counts from the recipe; use --split or --split-rows at runtime")
     if (config["model"].get("revision") != MODEL_REVISION or config["model"].get("dtype") != "bfloat16"
             or config["data"]["max_length"] != 1536):
         parser.error("Use the pinned BF16 reference and the 1,536-token limit")
@@ -73,13 +87,21 @@ def main():
     timer.daemon = True
     timer.start()
     try:
-        header = json.loads((data_dir / "manifest.json").read_text())
-        three_targets = header.get("stage") == "parents"
-        manifest, datasets = validate_dataset(data_dir, balanced=not three_targets)
-        general = manifest.get("workflow") == GENERAL_WORKFLOW
-        panel_records = datasets["eval.jsonl"]
+        native_data = data_source.is_dir() and (data_source / "manifest.json").is_file()
+        three_targets = False
+        if native_data:
+            if args.split is not None or args.split_rows is not None:
+                parser.error("This dataset already has explicit splits; runtime repartitioning is not permitted")
+            header = json.loads((data_source / "manifest.json").read_text())
+            three_targets = dataset_stage(header) == "parents"
+            manifest, datasets = validate_dataset(data_source, balanced=not three_targets)
+            general = manifest.get("workflow") == GENERAL_WORKFLOW
+        else:
+            general = True
         metric = "macro_f1_fixed_three" if three_targets else "macro_f1_fixed_four"
         training = dict(config["train"])
+        if args.seed is not None:
+            training["seed"] = args.seed
         if general and (training.get("max_steps", -1) != -1 or type(training.get("num_train_epochs")) not in (int, float)
                         or not math.isfinite(training["num_train_epochs"]) or training["num_train_epochs"] <= 0):
             parser.error("The general corpus requires positive num_train_epochs without max_steps")
@@ -110,6 +132,20 @@ def main():
             run_dir.mkdir(parents=True)
         distributed.wait_for_everyone()
         check_resources()
+        if native_data:
+            data_record = data_source / "manifest.json"
+        else:
+            prepared_data = run_dir / "data"
+            if main_process:
+                preparation = prepare_data(data_source, prepared_data, ratios=args.split, split_rows=args.split_rows,
+                                           seed=args.seed, check_resources=check_resources)
+                counts = ", ".join(f"{name}={panel['rows']}" if panel is not None else f"{name}=unread"
+                                   for name, panel in preparation["actual"].items())
+                print(f"Prepared data ({preparation['mode']}): {counts}", flush=True)
+            distributed.wait_for_everyone()
+            datasets = load_data(prepared_data)
+            data_record = prepared_data / "preparation.json"
+        panel_records = datasets["eval.jsonl"]
         rows = len(datasets["train.jsonl"])
         local_batches = math.ceil(rows / (batch_size * world_size))
         steps_per_epoch = math.ceil(local_batches / accumulation)
@@ -137,16 +173,18 @@ def main():
                                           "report_to": "none", "optim": "adamw_torch", "lr_scheduler_type": "linear",
                                           "weight_decay": 0.0, "max_grad_norm": 1.0, **training, **fixed,
                                           "output_dir": str(run_dir / "train")})
-        config_hash, data_hash = file_hash(config_path), file_hash(data_dir / "manifest.json")
+        config_hash, data_hash = file_hash(config_path), file_hash(data_record)
         if main_process:
             print(f"Run: {run_dir}\nProcesses: {world_size}; global batch: {schedule['global_batch_size']}; optimizer steps: {steps}", flush=True)
             write_json(run_dir / "config.json", {**config, "model": {**config["model"], "path": str(model_path)},
-                       "data": {**config["data"], "directory": str(data_dir)}, "output_dir": str(output_root)})
-            shutil.copyfile(data_dir / "manifest.json", run_dir / "dataset-manifest.json")
+                       "data": {**config["data"], "path": str(data_source)}, "output_dir": str(output_root),
+                       "train": training, "runtime": {"split": args.split, "split_rows": args.split_rows, "seed": args.seed}})
+            if native_data:
+                shutil.copyfile(data_record, run_dir / "dataset-manifest.json")
             write_json(run_dir / "environment.json", {
                 "started_at_utc": datetime.now(timezone.utc).isoformat(), "python": sys.version,
                 "backend": "unsloth", "model_revision": MODEL_REVISION, "training_schedule": schedule,
-                "data_manifest_sha256": data_hash, "config_sha256": config_hash,
+                "data_record": str(data_record), "data_record_sha256": data_hash, "config_sha256": config_hash,
                 "packages": {name: importlib.metadata.version(name) for name in ("torch", "transformers", "peft", "unsloth", "unsloth-zoo", "accelerate")},
                 "source_sha256": {path.name: file_hash(path) for path in Path(__file__).parent.glob("*.py")},
             })
@@ -228,14 +266,17 @@ def main():
         if main_process:
             if checkpoint_hashes(checkpoint) != checkpoint_files[selected]:
                 raise RuntimeError("Selected checkpoint changed")
-            if file_hash(config_path) != config_hash or file_hash(data_dir / "manifest.json") != data_hash:
-                raise RuntimeError("Config or dataset manifest changed")
-            validate_dataset(data_dir, balanced=not three_targets)
+            if file_hash(config_path) != config_hash or file_hash(data_record) != data_hash:
+                raise RuntimeError("Config or dataset metadata changed")
+            if native_data:
+                validate_dataset(data_source, balanced=not three_targets)
+            else:
+                load_data(prepared_data)
             write_json(run_dir / "selection.json", {
                 "selected_at_utc": datetime.now(timezone.utc).isoformat(), "backend": "unsloth", "step": selected,
                 "checkpoint": str(checkpoint), "rule": f"Highest validation {metric}, then lower Brier, then earlier step",
                 "matched": matched, "checkpoint_sha256": checkpoint_files[selected], "training_schedule": schedule,
-                "data_manifest_sha256": data_hash, "config_sha256": config_hash,
+                "data_record": str(data_record), "data_record_sha256": data_hash, "config_sha256": config_hash,
                 "prediction_sha256": {str(step): file_hash(run_dir / f"step-{step}-matched/tuned_predictions.jsonl") for step in matched},
                 **({"workflow": GENERAL_WORKFLOW, "status": "selected-final-sealed", "final_holdout_evaluated": False} if general else {}),
             })

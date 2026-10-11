@@ -111,16 +111,16 @@ Keep the joint decision head with the merged reference. A backbone-only export i
 
 ## Compare Q8 with the selected reference
 
-Use identical frozen requests and the selected pre-merge reference predictions.
+Use identical dataset requests and the selected pre-merge reference predictions.
 Start a separate Q8 listener on a free port, such as 8002.
 Do not replace the production listener for a comparison.
 Use the model ID that the comparison server lists.
 
 ```bash
-python finetune/evaluate.py http --data data/frozen/eval.jsonl \
+python finetune/evaluate.py http --data data/dataset/eval.jsonl \
   --base-url http://127.0.0.1:8002/v1 --model "$CLEFSIFT_Q8_MODEL_ID" \
   --out-dir reports/q8-matched --max-requests 188
-python finetune/evaluate.py compare --data data/frozen/eval.jsonl \
+python finetune/evaluate.py compare --data data/dataset/eval.jsonl \
   --reference "$RUN/step-128-matched/tuned_predictions.jsonl" \
   --candidate reports/q8-matched/tuned_predictions.jsonl \
   --out reports/q8-comparison.json

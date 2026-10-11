@@ -27,7 +27,8 @@ def build_items(processor, records, model_path):
     items = []
     for index, row in enumerate(records):
         encoded = encoder.encode_record(tokenizer, row, max_length=1000000)
-        if len(encoded.input_ids) > 1536 or len(encoded.input_ids) != row["metadata"]["input_tokens"]:
+        recorded_tokens = row.get("metadata", {}).get("input_tokens")
+        if len(encoded.input_ids) > 1536 or (recorded_tokens is not None and len(encoded.input_ids) != recorded_tokens):
             raise ValueError(f"Full-request token count mismatch: {row['id']}")
         if (len(encoded.questions) != 1 or encoded.questions[0].question_id != "classification"
                 or encoded.questions[0].option_ids != tuple(sorted(LABELS))):

@@ -128,6 +128,24 @@ def validate_records(records, *, workflow=None, split=None):
             raise ValueError(f"Unexpected source split: {row['id']}")
 
 
+def dataset_stage(manifest):
+    stage = manifest.get("stage")
+    if stage in ("parents", "assembled"):
+        return stage
+    files = manifest.get("files")
+    if not isinstance(files, list) or any(not isinstance(item, dict) or not isinstance(item.get("path"), str) for item in files):
+        raise ValueError("Dataset is not ready")
+    names = {item.get("path") for item in files}
+    if (manifest.get("workflow") == GENERAL_WORKFLOW and manifest.get("version") == 1
+            and names == {"train.jsonl", "eval.jsonl", "final-holdout.jsonl"}
+            and {"recipe_sha256", "parent_manifest_sha256", "target_groups"} <= manifest.keys()):
+        return "assembled"
+    if (manifest.get("parent_stage") == "parents" and {"train.jsonl", "eval.jsonl"} <= names
+            and {"parent_manifest_sha256", "generation_plan_sha256", "generation_results_sha256"} <= manifest.keys()):
+        return "assembled"
+    raise ValueError("Dataset is not ready")
+
+
 def _validate_general_dataset(directory, manifest, include_final):
     if type(include_final) is not bool:
         raise ValueError("include_final must be an explicit boolean")
@@ -136,8 +154,8 @@ def _validate_general_dataset(directory, manifest, include_final):
     if "selection_policy" in manifest and not development:
         raise ValueError("Unknown selection policy")
     targets = manifest.get("actual_groups" if development else "target_groups")
-    if manifest["stage"] != "frozen" or not isinstance(targets, dict) or set(targets) != set(roles.values()):
-        raise ValueError("General workflow requires frozen data and explicit target groups")
+    if dataset_stage(manifest) != "assembled" or not isinstance(targets, dict) or set(targets) != set(roles.values()):
+        raise ValueError("General workflow requires an assembled dataset and explicit target groups")
     if any(type(count) is not int or count <= 0 or (not development and count % 2) for count in targets.values()):
         raise ValueError("Target group counts must be positive even integers")
     files = manifest.get("files")
@@ -335,8 +353,7 @@ def validate_dataset(directory, balanced=False, *, include_final=False):
         raise ValueError("Dataset question or model revision mismatch")
     if manifest.get("max_input_tokens") != 1536 or manifest.get("truncation") is not False:
         raise ValueError("Dataset requires full-request token checks without truncation")
-    if manifest.get("stage") not in ("parents", "frozen"):
-        raise ValueError("Dataset is not ready")
+    dataset_stage(manifest)
     if manifest.get("workflow") == GENERAL_WORKFLOW:
         return _validate_general_dataset(directory, manifest, include_final)
     datasets = {}

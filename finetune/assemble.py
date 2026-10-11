@@ -224,7 +224,7 @@ def assemble(parents_dir, generation_dir, model_path, out_dir):
         files.append({"path": filename, "sha256": file_hash(path), "rows": len(records),
                       "groups": len({record["metadata"]["group"] for record in records}), "role": roles[filename],
                       "labels": dict(Counter(record["labels"]["classification"] for record in records)), "max_tokens": max(lengths)})
-    manifest = {"stage": "frozen", "created_at_utc": utc_now(), "question": QUESTION, "model_revision": MODEL_REVISION,
+    manifest = {"stage": "assembled", "created_at_utc": utc_now(), "question": QUESTION, "model_revision": MODEL_REVISION,
                 "model_path": str(model_path.resolve()), "max_input_tokens": MAX_INPUT_TOKENS, "truncation": False,
                 "parent_directory": str(parents_dir.resolve()), "parent_manifest_sha256": file_hash(parents_dir / "manifest.json"),
                 "parent_files": source_hashes, "parent_stage": previous["stage"], "generation_directory": str(generation_dir.resolve()),
@@ -241,7 +241,7 @@ def assemble(parents_dir, generation_dir, model_path, out_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Freeze balanced four-label panels from parents and accepted API derivatives.")
+    parser = argparse.ArgumentParser(description="Assemble balanced four-label panels from parents and accepted API derivatives.")
     parser.add_argument("--parents", type=Path, required=True)
     parser.add_argument("--generation", type=Path, required=True)
     parser.add_argument("--model", type=Path, required=True)

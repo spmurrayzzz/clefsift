@@ -1,6 +1,10 @@
 {
+  "2604f42f434cbdb3cbd6e43baa5d1ff27f1691e637a8c60f0acffb1745817f04": {
+    "semantics_sha256": "0e5f9f9594e02dcf8dcb2b2e28efb050c240ce6ae1190f865c62a68b20a6437a",
+    "scope": "Dataset terminology and CLI naming only. Source normalization, group assignment, prompts, labels, and acceptance rules are unchanged. Existing artifacts remain valid."
+  },
   "c1ebdcf93ad99bad71b5216c58ab9564b396ee68cd333d4af31dd5f7fae13b00": {
     "semantics_sha256": "0e5f9f9594e02dcf8dcb2b2e28efb050c240ce6ae1190f865c62a68b20a6437a",
-    "scope": "Operational retry handling only. Frozen source normalization, group assignment, prompts, labels, and output validation must remain identical. Original implementation and artifacts remain in the run snapshots."
+    "scope": "Operational retry handling only. Fixed source normalization, group assignment, prompts, labels, and output validation must remain identical. Original implementation and artifacts remain in the run snapshots."
   }
 }

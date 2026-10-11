@@ -50,13 +50,13 @@ CORPUS_HELP = """usage: clefsift [--python PATH] corpus <stage> ...
 stages:
   acquire             Download approved catalog files
   import              Build human candidates (needs ingest readers)
-  prepare             Normalize sources and freeze parents (needs tokenizer)
-  plan                Freeze generation tasks without model calls
+  prepare             Normalize sources and assign parent groups (needs tokenizer)
+  plan                Create generation tasks without model calls
   run                 Run bounded generation in the foreground
   start               Start detached generation from corpus.json
   stop                Drain detached generation
   status              Inspect detached generation
-  assemble            Freeze the dataset (needs tokenizer)
+  assemble            Assemble the dataset (needs tokenizer)
   export              Write pooled text/label JSONL (includes final holdout)
 
 Use "clefsift corpus <stage> --help" for options."""

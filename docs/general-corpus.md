@@ -144,7 +144,7 @@ AI-assisted outputs receive length, number-retention, and lexical checks. Mixed 
 
 ## Construct the new final holdout
 
-Freeze the recipe before final construction. Do not inspect final prose or use its generation failures to revise prompts or acceptance rules. Construction uses the same rules as development and does not score a detector.
+Fix the recipe before final construction. Do not inspect final prose or use its generation failures to revise prompts or acceptance rules. Construction uses the same rules as development and does not score a detector.
 
 ```bash
 python finetune/corpus.py run --plan-dir "$WORK/generation" \
@@ -153,10 +153,10 @@ python finetune/corpus.py run --plan-dir "$WORK/generation" \
   --workers 4 --timeout 120
 uv run --no-sync python finetune/corpus.py assemble --parents "$WORK/parents" \
   --generation "$WORK/generation" --model "$CLEFSIFT_MODEL" \
-  --out-dir "$WORK/frozen" --construct-final
+  --out-dir "$WORK/dataset" --construct-final
 ```
 
-Assembly requires complete four-class groups. It rechecks response identities, artifact hashes, full-request tokens, duplicates, and exact domain and historical planned-route parent quotas. A failed group can only use a matching reserve. A shortfall creates an audit failure, not a frozen manifest.
+Assembly requires complete four-class groups. It rechecks response identities, artifact hashes, full-request tokens, duplicates, and exact domain and historical planned-route parent quotas. A failed group can only use a matching reserve. A shortfall creates an audit failure instead of a dataset manifest.
 
 Sealing is a protocol and hash boundary, not filesystem access control. The final parents, requests, responses, and `final-holdout.jsonl` remain accessible to the file owner. Keep them outside development inspections. The completed holdout below was later published; treat it as public but excluded from training, selection, and prompt or acceptance revision.
 
@@ -168,13 +168,13 @@ The manifest records `selection_policy: all-valid-development-groups-v1`, actual
 
 ## Public text/label export
 
-`export` validates a frozen dataset then writes pooled `{text, label}` JSONL: train rows, validation rows, then holdout rows, each in frozen file order. Lines use compact UTF-8 JSON with the `text` key first. Groups, splits, and provenance are dropped, so the export is not a training input. Holdout rows are included, which requires explicit `--include-final`:
+`export` validates a dataset then writes pooled `{text, label}` JSONL: train rows, validation rows, then holdout rows, each in dataset file order. Lines use compact UTF-8 JSON with the `text` key first. Groups and provenance are omitted. For this ordered export, supply the original train, validation, and test row counts with `--split-rows` at training runtime. The trainer writes train and validation files while leaving the existing holdout tail unread. Holdout rows are included, which requires explicit `--include-final`:
 
 ```bash
-clefsift corpus export --frozen "$WORK/frozen" --out "$WORK/clefsift-cleaned.jsonl" --include-final
+clefsift corpus export --data-dir "$WORK/dataset" --out "$WORK/clefsift-cleaned.jsonl" --include-final
 ```
 
-This command reproduces [spmurrayzzz/clefsift-cleaned](https://huggingface.co/datasets/spmurrayzzz/clefsift-cleaned) byte for byte from its frozen source dataset.
+This command reproduces [spmurrayzzz/clefsift-cleaned](https://huggingface.co/datasets/spmurrayzzz/clefsift-cleaned) byte for byte from its source dataset.
 
 ## Start, stop, and status
 
@@ -226,7 +226,7 @@ Do not stop existing inference services without approval. Verify that the target
 
 Use the approved checkout and the [uv training setup](training.md#setup). Keep datasets, checkpoints, and logs on the selected artifact filesystem. Preserve previous runs and at least 30 GiB free space.
 
-Set `model.path`, `data.directory`, `output_dir`, `minutes`, and `train.num_train_epochs` in a local copy of the [recipe](../finetune/recipe-general.yaml). Paths resolve from that file. Then run:
+Set `model.path`, `data.path`, `output_dir`, `minutes`, and `train.num_train_epochs` in a local copy of the [recipe](../finetune/recipe-general.yaml). `data.path` accepts the assembled dataset directory directly. For the pooled public JSONL, provide its original row counts through `--split-rows` at runtime; the trainer does not infer them. Paths resolve from that file. Then run:
 
 ```bash
 uv run --no-sync tools/clefsift train --config /path/to/recipe.yaml

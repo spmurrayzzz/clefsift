@@ -49,18 +49,19 @@ The mock returns synthetic results. It does not detect AI text.
 
 `tools/corpus` controls generation from one JSON config. Use `start`, `status`, and `stop` with `--config /path/to/corpus.json`; the default is `./corpus.json`. Stop returns immediately, or use `stop --wait`. The config alone sets models and worker counts. No approval file, code-hash update, or training environment is required. See [corpus operation](docs/general-corpus.md#start-stop-and-status).
 
-The simplified public export is [spmurrayzzz/clefsift-cleaned](https://huggingface.co/datasets/spmurrayzzz/clefsift-cleaned): 90,784 pooled `{text, label}` rows in train, validation, then holdout file order. It drops groups, splits, and provenance, so it is not a training input. The final holdout is public but stays out of training and selection.
+The public dataset is [spmurrayzzz/clefsift-cleaned](https://huggingface.co/datasets/spmurrayzzz/clefsift-cleaned): 90,784 `{text, label}` rows in train, validation, then holdout order. Supply its original split boundaries at runtime with `--split-rows`; keep the existing holdout out of training and validation. The trainer does not assume row counts from a dataset name.
 
 ## Train your model
 
-[Training](docs/training.md) uses Unsloth `FastDecisionModel` and `DecisionTrainer`. Configure the existing [recipe](finetune/recipe-general.yaml), then run:
+[Training](docs/training.md) uses Unsloth `FastDecisionModel` and `DecisionTrainer`. Set the local model and output paths in the [recipe](finetune/recipe-general.yaml), then give it a dataset checkout or JSONL file:
 
 ```bash
 uv sync --locked --extra train
-uv run --no-sync tools/clefsift train
+uv run --no-sync tools/clefsift train --data /path/to/unsplit-data.jsonl \
+  --split 0.8 0.1 0.1 --seed 42
 ```
 
-Each run trains, selects on validation, and exports the selected model. Use standard `torchrun` for multiple GPUs. Training and export do not start or replace a serving process.
+The example fractions mean train, validation, and test; they are supplied by the caller, not defaults. Each run prepares the splits on disk, trains, selects on validation, and exports the selected model. Use standard `torchrun` for multiple GPUs. Training and export do not start or replace a serving process.
 The new [general corpus workflow](docs/general-corpus.md) starts from human-only sources, generates through Pi, and keeps validation and final holdout separate.
 Every configured model generates remaining examples from a shared queue. Actual model contributions depend on throughput. The controller retries transient failures within the existing two-attempt limit; provider failures disable only that route. Each launch executes a source snapshot and preserves completed outputs and the original deadline. Generation does not automatically assemble data, start training, or access final-holdout text. Preparation and assembly interfaces remain separate in this first cleanup.
 [Export and serving](docs/serving.md) covers GGUF conversion and Q8 comparison.

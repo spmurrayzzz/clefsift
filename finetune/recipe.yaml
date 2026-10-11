@@ -3,7 +3,7 @@ model:
   revision: 2f3de3dd85f379784083b0814d997ab627200f0c
   dtype: bfloat16
 data:
-  directory: ../data/frozen
+  directory: ../data/dataset
   max_length: 1536
 lora:
   r: 64

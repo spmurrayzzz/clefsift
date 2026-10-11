@@ -87,7 +87,7 @@ def recipe_semantics():
     tree = ast.parse(Path(__file__).read_text())
     definitions = {node.name: ast.dump(node, include_attributes=False) for node in tree.body
                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in names}
-    require(set(definitions) == names, "Missing frozen recipe definition")
+    require(set(definitions) == names, "Missing fixed recipe definition")
     return digest({"workflow": WORKFLOW, "labels": LABELS, "splits": SPLITS, "question": QUESTION,
                    "model_revision": MODEL_REVISION, "definitions": definitions})
 
@@ -401,7 +401,7 @@ def plan(args):
              "recipe": manifest["recipe"], "recipe_sha256": manifest["recipe_sha256"], "files": files, "routes": manifest["routes"],
              "target_groups": manifest["target_groups"], "reserves": {f["role"]: f["reserves"] for f in manifest["files"]},
              "attempts_per_task": 2, "max_attempts": sum(f["tasks"] for f in files) * 2,
-             "final_policy": "Frozen-recipe construction only; no final prose for prompt development, selection, or scoring. Sealing is logical, not an ACL."}
+             "final_policy": "Fixed-recipe construction only; no final prose for prompt development, selection, or scoring. Sealing is logical, not an ACL."}
     write_json(args.out_dir / "plan.json", value)
     return {"stage": value["stage"], "tasks": {f["role"]: f["tasks"] for f in files}, "max_attempts": value["max_attempts"], "reserves": value["reserves"]}
 
@@ -409,7 +409,7 @@ def plan(args):
 def load_plan(directory, splits, parent_directory=None, resume=False):
     value = load(directory / "plan.json")
     require(value.get("workflow") == WORKFLOW and value.get("stage") == "generation-plan" and value.get("version") == VERSION, "Invalid plan")
-    require(recipe_matches(value.get("recipe")) and value.get("recipe_sha256") == digest(value["recipe"]) and value.get("attempts_per_task") == 2, "Frozen recipe mismatch")
+    require(recipe_matches(value.get("recipe")) and value.get("recipe_sha256") == digest(value["recipe"]) and value.get("attempts_per_task") == 2, "Fixed recipe mismatch")
     parent_directory = parent_directory or Path(value["parents"])
     require(file_hash(parent_directory / "manifest.json") == value["parent_manifest_sha256"], "Parent manifest hash mismatch")
     manifest, parents = load_parents(parent_directory, splits, resume=resume)
@@ -970,7 +970,7 @@ def assemble(args):
                 panel = selected[item["role"]]
                 item["provenance_sha256"] = sorted({identity for row in panel for identity in provenance_hashes(row["metadata"]["provenance"])})
                 item["cluster_ids"] = sorted({row["metadata"]["provenance_cluster"] for row in panel})
-        frozen = {"workflow": WORKFLOW, "stage": "frozen", "version": VERSION, "question": QUESTION, "model_revision": MODEL_REVISION,
+        dataset = {"workflow": WORKFLOW, "stage": "assembled", "version": VERSION, "question": QUESTION, "model_revision": MODEL_REVISION,
                   "max_input_tokens": 1536, "truncation": False, "files": files, "target_groups": manifest["target_groups"], "routes": manifest["routes"],
                   "domain_route_targets": manifest["domain_route_targets"],
                   "generation_assignment": "per-attempt-v1", "route_quota_basis": "planned-parent",
@@ -981,7 +981,7 @@ def assemble(args):
             for split, panel in selected.items():
                 counts = Counter((row["metadata"]["domain"], row["metadata"]["assigned_route"]) for row in panel if row["labels"]["classification"] == "human")
                 actual_domains[split] = {domain: {route: counts[domain, route] for route in manifest["routes"]} for domain in sorted({domain for domain, route in counts})}
-            frozen.update(selection_policy="all-valid-development-groups-v1", actual_groups={split: len(panel) // 4 for split, panel in selected.items()},
+            dataset.update(selection_policy="all-valid-development-groups-v1", actual_groups={split: len(panel) // 4 for split, panel in selected.items()},
                           actual_domain_route_counts=actual_domains,
                           actual_routes=sorted({row["metadata"]["actual_route"] for panel in selected.values() for row in panel if row["labels"]["classification"] != "human"}),
                           target_metadata_status="historical; not acceptance gates",
@@ -990,16 +990,16 @@ def assemble(args):
                                              "identities": "group, author, document, thread, cluster, canonical_url, source_url; recursive; hashed inventories",
                                              "algorithm": "Before output QC, cluster=SHA256(canonical JSON sorted source group IDs); SHA256(seed + ':' + cluster) < floor(2^256/10) selects original training components. Validation unchanged.",
                                              "original_final_parents_loaded": False, "upstream_train_carve_authorized": True})
-        _validate_general_dataset(args.out_dir, frozen, include_final=True)
-        write_json(args.out_dir / "manifest.json", frozen)
-        return {"stage": "frozen", "groups": frozen.get("actual_groups", manifest["target_groups"]), "excluded": dict(exclusions), "sealing": "logical-only; not an ACL"}
+        _validate_general_dataset(args.out_dir, dataset, include_final=True)
+        write_json(args.out_dir / "manifest.json", dataset)
+        return {"stage": "assembled", "groups": dataset.get("actual_groups", manifest["target_groups"]), "excluded": dict(exclusions), "sealing": "logical-only; not an ACL"}
 
 
 def export(args):
     require(args.include_final, "Export includes final-holdout rows; pass --include-final")
     require(not args.out.exists(), "Output file must be new")
-    manifest = load(args.frozen / "manifest.json")
-    _, datasets = _validate_general_dataset(args.frozen, manifest, True)
+    manifest = load(args.data_dir / "manifest.json")
+    _, datasets = _validate_general_dataset(args.data_dir, manifest, True)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     count = 0
     with args.out.open("x", encoding="utf-8") as output:
@@ -1014,7 +1014,7 @@ def export(args):
 def main():
     parser = argparse.ArgumentParser(description="Build the separate human-only general corpus. No source resplitting, truncation, or final scoring.")
     commands = parser.add_subparsers(dest="command", required=True)
-    prep = commands.add_parser("prepare", help="Normalize human sources and freeze deterministic parent assignments.")
+    prep = commands.add_parser("prepare", help="Normalize human sources and record deterministic parent assignments.")
     prep.add_argument("--source", type=Path, required=True)
     prep.add_argument("--model", type=Path, required=True)
     prep.add_argument("--out-dir", type=Path, required=True)
@@ -1024,7 +1024,7 @@ def main():
     prep.add_argument("--routes", nargs=2, default=["local/qwen3.8-27b", "openai-codex/gpt-6-luna"])
     prep.add_argument("--quotas", type=Path, help="Explicit domain group counts for each split; never rebalance missing domains.")
     prep.add_argument("--reserve-fraction", type=float, default=0, help="Extra split/domain-local parents, 0 to 0.25; generation budget must include them.")
-    planning = commands.add_parser("plan", help="Freeze three reference-only tasks per parent without model calls.")
+    planning = commands.add_parser("plan", help="Create three reference-only tasks per parent without model calls.")
     planning.add_argument("--parents", type=Path, required=True)
     planning.add_argument("--out-dir", type=Path, required=True)
     running = commands.add_parser("run", help="Use explicit budgets; final construction requires separate consent.")
@@ -1037,15 +1037,15 @@ def main():
     running.add_argument("--stop-file", type=Path, help="Stop admitting attempts when this file exists, then finish active calls.")
     running.add_argument("--timeout", type=float, default=120)
     running.add_argument("--construct-final", action="store_true")
-    assembly = commands.add_parser("assemble", help="Freeze exact balanced targets, with explicit sealed final construction.")
+    assembly = commands.add_parser("assemble", help="Assemble exact balanced targets, with explicit sealed final construction.")
     assembly.add_argument("--parents", type=Path, required=True)
     assembly.add_argument("--generation", type=Path, required=True)
     assembly.add_argument("--model", type=Path, required=True)
     assembly.add_argument("--out-dir", type=Path, required=True)
     assembly.add_argument("--construct-final", action="store_true")
     assembly.add_argument("--from-development", action="store_true", help="Keep all valid development groups and hash-carve training provenance clusters into holdout; no generation.")
-    exporting = commands.add_parser("export", help="Write pooled text/label JSONL from a frozen dataset; includes the final holdout.")
-    exporting.add_argument("--frozen", type=Path, required=True)
+    exporting = commands.add_parser("export", help="Write pooled text/label JSONL from a dataset; includes the final holdout.")
+    exporting.add_argument("--data-dir", type=Path, required=True)
     exporting.add_argument("--out", type=Path, required=True)
     exporting.add_argument("--include-final", action="store_true", help="Required: the export includes final-holdout rows.")
     args = parser.parse_args()
