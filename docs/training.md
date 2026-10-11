@@ -1,83 +1,92 @@
 # Training
 
-Training uses Unsloth `FastDecisionModel` and `DecisionTrainer`. Dependencies live in [pyproject.toml](../pyproject.toml) and [uv.lock](../uv.lock); uv manages the Python environment. There is no required environment directory name or machine-specific launcher.
+Training uses Unsloth `FastDecisionModel` and `DecisionTrainer`. uv installs the dependencies from [pyproject.toml](../pyproject.toml) and [uv.lock](../uv.lock).
 
 ## Setup
 
-From the repository root, install the training dependencies once:
+Use a CUDA machine with [uv](https://docs.astral.sh/uv/getting-started/installation/) installed. Pass paths directly as command arguments. No environment variables or YAML edits are needed.
+
+### 1. Clone and install
 
 ```bash
+git clone https://github.com/spmurrayzzz/clefsift.git
+cd clefsift
 uv sync --locked --extra train
 ```
 
-Use a permitted local dataset and the pinned Cloudflare Clef snapshot. Training accepts a JSONL file with `text` and `label` fields, or a checkout containing exactly one JSONL file. It writes separate train and validation files before loading model weights. It does not require an input manifest or regenerate examples.
+### 2. Download the dataset to your target path
 
-The [recipe](../finetune/recipe-general.yaml) supplies training settings and optional default paths:
+```bash
+uv run --no-sync hf download spmurrayzzz/clefsift-cleaned clefsift-cleaned.jsonl \
+  --repo-type dataset --revision 1f891d864e5759fc15f6706a41a16285a92d259f \
+  --local-dir /path/to/dataset
+```
 
-- `model.path`: local Clef snapshot at revision `2f3de3dd85f379784083b0814d997ab627200f0c`. `--model` overrides it.
-- `data.path`: JSONL file or dataset checkout. `--data` overrides it.
-- `output_dir`: parent directory for new runs. `--output-dir` overrides it.
-- `minutes`: total wall-time limit, including validation and export.
-- `train.num_train_epochs`: requested epochs.
+The command creates the target directory. Replace `/path/to/dataset` with your chosen location.
 
-Recipe paths resolve from the recipe file. CLI paths resolve from the current directory and can use different disks. Prepared data, checkpoints, reports, and exports stay under `--output-dir`; the source model and dataset remain in their original locations. No recipe edits are needed when CLI paths are supplied. Keep private paths in a local copy outside Git. The `train` section uses Hugging Face `TrainingArguments` names. The `lora` and `decision` sections use Unsloth argument names.
+### 3. Train with explicit paths and splits
 
-Dependency and cache locations are separate from run output. Set `UV_PROJECT_ENVIRONMENT` and `UV_CACHE_DIR` before installation to choose the uv environment and cache directories. `HF_HOME` selects the Hugging Face cache. `TMPDIR` selects the temporary directory.
+Use a complete local Clef reference checkpoint. See [reference checkpoint](#reference-checkpoint) if you need to download one.
+
+For the dataset downloaded above, copy the split values as shown. They preserve its existing splits; you do not need to count rows.
+
+```bash
+uv run --no-sync tools/clefsift train \
+  --model /path/to/clef \
+  --data /path/to/dataset/clefsift-cleaned.jsonl \
+  --output-dir /path/to/output \
+  --split-rows 73896 8424 8464
+```
+
+`--model` is the reference checkpoint directory. `--data` is the dataset file or checkout directory. `--output-dir` is the parent directory for the run's prepared data, checkpoints, reports, and export. These paths can use different disks.
+
+The existing test holdout stays out of training and validation. For your own unsplit dataset, use [fraction-based splits](#choose-splits-at-runtime).
+
+Use an available GPU and keep at least 30 GiB free beyond checkpoint and export space. The default recipe runs one epoch on one GPU with a 720-minute total limit, including validation and export.
+
+The finished fine-tuned model is `/path/to/output/<timestamp>-<id>/release/`. The command prints the full destination as `Release:`. This folder contains the merged weights, FP32 decision head, and tokenizer files. Export is automatic; no second command is needed.
+
+## Reference checkpoint
+
+If you already have the pinned Cloudflare Clef snapshot, pass its directory to `--model`. Otherwise, download it once to your chosen path:
+
+```bash
+uv run --no-sync hf download Cloudflare/clef \
+  --revision 2f3de3dd85f379784083b0814d997ab627200f0c \
+  --local-dir /path/to/clef
+```
 
 ## Choose splits at runtime
 
-For genuinely unsplit input, provide train, validation, and test fractions plus a seed:
-
-```bash
-uv run --no-sync tools/clefsift train --data /path/to/examples.jsonl \
-  --split 0.8 0.1 0.1 --seed 42
-```
-
-These values are examples, not defaults. Fractions must sum to one. Train and validation must be positive; test may be zero. Random splitting requires an explicit seed, which also overrides the training seed. Ungrouped rows are stratified by their supplied labels. Each present label needs enough rows for all requested splits. Supplied source groups, author/document identities, and duplicate texts stay together. Grouped splits can differ from the target fractions; the report records actual counts.
-
-For an ordered file with existing split boundaries, supply the counts instead:
-
-```bash
-uv run --no-sync tools/clefsift train --data /path/to/ordered-data.jsonl \
-  --split-rows "$TRAIN_ROWS" "$VALIDATION_ROWS" "$TEST_ROWS"
-```
-
-Counts refer to nonblank JSON records. This writes only the requested train and validation prefix. The test count is recorded as caller-declared; the remaining source is neither read nor verified. Use this mode with the original boundaries of the pooled public export. Do not randomly repartition its existing holdout.
-
-Already separated `train.jsonl` and `validation.jsonl` (or `eval.jsonl`) files need no split arguments. The same applies to rows with explicit `split` or `metadata.split` assignments. Existing test files remain unopened. Split arguments cannot override existing assignments, and mixed assigned/unassigned input fails.
-
-The general recipe requires epochs. It cannot fall back to the historical 128-step limit. The example's 720-minute cap is a limit, not a runtime estimate or approval to start a job.
-
-## Run
-
-Check available GPU memory and disk before starting. Do not stop another job to make room. Keep at least 30 GiB free on the output filesystem in addition to checkpoint and export space.
+For your own genuinely unsplit dataset, choose fractions. This example uses 80% train, 10% validation, and 10% test:
 
 ```bash
 uv run --no-sync tools/clefsift train \
   --model /path/to/clef \
   --data /path/to/examples.jsonl \
-  --output-dir /path/to/runs \
+  --output-dir /path/to/output \
   --split 0.8 0.1 0.1 --seed 42
 ```
 
-For a local recipe:
+The order is train, validation, test. These fractions are examples, not defaults. They must sum to one; train and validation must be positive, and test may be zero. The required seed makes splitting reproducible and also sets the training seed.
 
-```bash
-uv run --no-sync tools/clefsift train --config /path/to/recipe.yaml \
-  --split 0.8 0.1 0.1 --seed 42
-```
+Input can be a JSONL file with `text` and `label` fields or a checkout containing exactly one JSONL file. Supplied groups, author/document identities, and duplicate texts stay together. Each present label needs enough rows for the requested splits. Actual counts can differ from the requested fractions; the preparation report records them.
 
-Every invocation creates a new timestamped directory under `output_dir`. Rank zero prepares the selected splits onto disk and records runtime options, actual counts, source locators, and hashes. All workers then read only the prepared train and validation files. Original text and extra source fields remain unchanged. The source files stay untouched.
+For ordered data with existing boundaries, use `--split-rows` with its original counts, as in the published-dataset walkthrough. Counts refer to nonblank JSON records. Preparation reads only the train and validation prefix; the declared test count is recorded without reading or verifying the tail. Do not randomly repartition the published dataset's existing holdout.
 
-The run trains, selects a checkpoint on validation, and exports the selected model. With `--output-dir /path/to/runs`, the finished model is:
+Already separated `train.jsonl` and `validation.jsonl` (or `eval.jsonl`) files need no split flags. Rows with explicit `split` or `metadata.split` assignments also keep their existing splits. Existing test files remain unopened. Split flags cannot override existing assignments, and mixed assigned/unassigned input fails.
 
-```text
-/path/to/runs/<timestamp>-<id>/release/
-```
+## Training settings
 
-This directory contains the merged BF16 weights, FP32 decision head, and tokenizer files. Prepared data, checkpoints, and reports stay in the same run directory. The runner generates `<timestamp>-<id>` and uses the fixed `release/` name. `--output-dir` selects the parent for the whole run, not an exact final model directory. The command prints the full destination as `Release:` after export.
+The default [recipe](../finetune/recipe-general.yaml) sets one epoch and a 720-minute total cap, including validation and export. To change training settings, make a local copy and add `--config /path/to/recipe.yaml` to the train command. The general recipe requires positive epochs and cannot fall back to the historical 128-step schedule.
 
-The run preserves prior runs and failed artifacts. It does not deploy or restart a server. Existing internal dataset directories with a manifest remain supported.
+The `train` section uses Hugging Face `TrainingArguments` names. The `lora` and `decision` sections use Unsloth argument names. CLI paths override recipe paths and resolve from the current directory. Recipe paths resolve from the recipe file. Keep private recipe copies outside Git.
+
+## Run behavior
+
+Each invocation creates a new timestamped directory under `--output-dir`. Rank zero prepares train and validation files before loading model weights and records runtime options, actual counts, source locators, and hashes. All workers read only the prepared train and validation files. Original text, extra source fields, and source files stay unchanged.
+
+The run selects a checkpoint on validation and exports automatically to its fixed `release/` subdirectory. `--output-dir` selects the parent for the whole run, not an exact final model directory. Prior runs and failed artifacts are preserved. Training does not deploy or restart a server. Existing internal dataset directories with a manifest remain supported.
 
 ## Multiple GPUs
 

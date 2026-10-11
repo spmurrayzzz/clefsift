@@ -53,20 +53,48 @@ The public dataset is [spmurrayzzz/clefsift-cleaned](https://huggingface.co/data
 
 ## Train your model
 
-[Training](docs/training.md) uses Unsloth `FastDecisionModel` and `DecisionTrainer`. Choose the model, dataset, and output paths at runtime. They can use different disks:
+Use a CUDA machine with [uv](https://docs.astral.sh/uv/getting-started/installation/) installed. Pass your chosen paths directly to the commands below. No environment variables or YAML edits are needed.
+
+### 1. Clone and install
 
 ```bash
+git clone https://github.com/spmurrayzzz/clefsift.git
+cd clefsift
 uv sync --locked --extra train
-uv run --no-sync tools/clefsift train \
-  --model /path/to/clef \
-  --data /path/to/unsplit-data.jsonl \
-  --output-dir /path/to/runs \
-  --split 0.8 0.1 0.1 --seed 42
 ```
 
-With `--output-dir /path/to/runs`, the finished model is `/path/to/runs/<timestamp>-<id>/release/`. Prepared data, checkpoints, and reports stay in the same run directory. The runner chooses the run name and `release/` subdirectory; the training command cannot set an exact final model directory.
+### 2. Download the dataset to your target path
 
-CLI paths override the [recipe](finetune/recipe-general.yaml) and resolve from the current directory. The example fractions mean train, validation, and test; they are supplied by the caller, not defaults. Each run prepares the splits on disk, trains, selects on validation, and exports the selected model. Use standard `torchrun` for multiple GPUs. Training and export do not start or replace a serving process.
+```bash
+uv run --no-sync hf download spmurrayzzz/clefsift-cleaned clefsift-cleaned.jsonl \
+  --repo-type dataset --revision 1f891d864e5759fc15f6706a41a16285a92d259f \
+  --local-dir /path/to/dataset
+```
+
+The command creates the target directory. Replace `/path/to/dataset` with your chosen location.
+
+### 3. Train with your checkpoint, dataset, and output paths
+
+Use a complete local Clef reference checkpoint. See [checkpoint download](docs/training.md#reference-checkpoint) if you need one.
+
+For the dataset downloaded above, copy the split values as shown. They preserve its existing splits; you do not need to count rows.
+
+```bash
+uv run --no-sync tools/clefsift train \
+  --model /path/to/clef \
+  --data /path/to/dataset/clefsift-cleaned.jsonl \
+  --output-dir /path/to/output \
+  --split-rows 73896 8424 8464
+```
+
+`--model` selects the reference checkpoint directory. `--data` selects the training dataset. `--output-dir` selects where the run writes prepared data, checkpoints, reports, and the exported model. These paths can use different disks.
+
+The existing test holdout stays out of training and validation. For your own unsplit dataset, see [fraction-based splits](docs/training.md#choose-splits-at-runtime).
+
+The finished fine-tuned model is `/path/to/output/<timestamp>-<id>/release/`. Export is automatic, and the command prints the full destination as `Release:`.
+
+Use an available GPU and keep at least 30 GiB free beyond checkpoint and export space. The default recipe runs one epoch with a 720-minute total limit. Training and export do not start or replace a serving process.
+
 The new [general corpus workflow](docs/general-corpus.md) starts from human-only sources, generates through Pi, and keeps validation and final holdout separate.
 Every configured model generates remaining examples from a shared queue. Actual model contributions depend on throughput. The controller retries transient failures within the existing two-attempt limit; provider failures disable only that route. Each launch executes a source snapshot and preserves completed outputs and the original deadline. Generation does not automatically assemble data, start training, or access final-holdout text. Preparation and assembly interfaces remain separate in this first cleanup.
 [Export and serving](docs/serving.md) covers GGUF conversion and Q8 comparison.
