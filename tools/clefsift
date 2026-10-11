@@ -14,8 +14,9 @@ FINETUNE = REPO / "finetune"
 TOOLS = REPO / "tools"
 
 INGEST = ("pyarrow", "py7zr")
-TOKENIZER = ("transformers",)
-TRAINING = ("torch", "transformers", "peft", "clef_finetune")
+TOKENIZER = ("torch", "transformers")
+TRAINING = ("unsloth", "torch", "transformers", "peft")
+EXPORT = ("torch", "transformers", "peft", "safetensors")
 
 CORPUS_STAGES = {
     "acquire": ("acquire.py", False, ()),
@@ -37,7 +38,8 @@ Single entry point for the general corpus workflow.
 commands:
   init                Write a corpus config and check the host
   corpus <stage>      acquire, import, prepare, plan, run, start, stop, status, assemble, export
-  train               Run reference training and validation-only selection
+  train               Train, select, and export with Unsloth; supports torchrun DDP
+  export              Merge a selected checkpoint on CPU with an FP32 head
   evaluate <command>  summarize, http, compare
   demo                Run the local mock server
 
@@ -70,8 +72,7 @@ def wants_help(argv):
 
 
 def delegate(python, script, argv):
-    result = subprocess.run([str(python), str(script), *argv])
-    raise SystemExit(result.returncode)
+    os.execv(str(python), [str(python), str(script), *argv])
 
 
 def has_modules(python, needs):
@@ -90,11 +91,11 @@ def require_modules(python, needs):
         print("  uv pip install --python \"$WORK/ingest-venv/bin/python\" -r finetune/requirements-ingest.txt", file=sys.stderr)
         print("Then re-run with --python \"$WORK/ingest-venv/bin/python\".", file=sys.stderr)
     elif needs == TOKENIZER:
-        print("clefsift: missing transformers for token counting.", file=sys.stderr)
-        print("Re-run with --python and the training environment Python (see docs/training.md section 1).", file=sys.stderr)
+        print("clefsift: missing torch or transformers for the reference token encoder.", file=sys.stderr)
+        print("Run uv sync --extra train, then use uv run --no-sync (see docs/training.md).", file=sys.stderr)
     else:
         print("clefsift: missing training packages.", file=sys.stderr)
-        print("Re-run with --python and the training environment Python (see docs/training.md section 1).", file=sys.stderr)
+        print("Run uv sync --extra train, then use uv run --no-sync (see docs/training.md).", file=sys.stderr)
     raise SystemExit(2)
 
 
@@ -204,6 +205,10 @@ def main():
         if not wants_help(rest):
             require_modules(python, TRAINING)
         delegate(python, FINETUNE / "run.py", rest)
+    elif verb == "export":
+        if not wants_help(rest):
+            require_modules(python, EXPORT)
+        delegate(python, FINETUNE / "export.py", rest)
     elif verb == "evaluate":
         delegate(python, FINETUNE / "evaluate.py", rest)
     elif verb == "demo":

@@ -1,10 +1,12 @@
 from collections import Counter
 import hashlib
 import html
+import importlib.util
 import ipaddress
 import json
 import re
 from pathlib import Path
+import sys
 import urllib.parse
 import urllib.request
 
@@ -381,16 +383,29 @@ def validate_dataset(directory, balanced=False, *, include_final=False):
     return manifest, datasets
 
 
+def load_schema(model):
+    path = Path(model).resolve() / "joint_schema_model.py"
+    if not path.is_file():
+        raise ValueError("A local Clef snapshot with joint_schema_model.py is required")
+    name = "_clefsift_schema_" + sha256(str(path))[:16]
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            del sys.modules[name]
+            raise
+    return sys.modules[name]
+
+
 class TokenCounter:
     def __init__(self, model):
-        from clef_finetune.jsm import load_jsm
         from transformers import AutoTokenizer
 
-        model = Path(model)
-        if not model.is_dir():
-            raise ValueError("A local pinned Clef snapshot is required")
+        self.encoder = load_schema(model)
         self.tokenizer = AutoTokenizer.from_pretrained(str(model), local_files_only=True)
-        self.encoder = load_jsm(release_dir=model)
 
     def __call__(self, row):
         return len(self.encoder.encode_record(self.tokenizer, row, max_length=1000000).input_ids)

@@ -21,6 +21,6 @@ jobs:
             node --check "$file"
           done
           python -m compileall -q finetune tools
-          for file in finetune/prepare.py finetune/generate.py finetune/assemble.py finetune/run.py finetune/evaluate.py; do
+          for file in finetune/prepare.py finetune/generate.py finetune/assemble.py finetune/run.py finetune/export.py finetune/evaluate.py; do
             python "$file" --help > /dev/null
           done

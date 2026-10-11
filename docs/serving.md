@@ -72,24 +72,23 @@ Reload LinkedIn after a model change.
 
 ## Export a new checkpoint
 
-[Training](training.md) produces `selection.json` with the selected checkpoint path.
-Keep the original pinned reference snapshot in `CLEFSIFT_MODEL`.
+[Training](training.md) automatically exports the selected checkpoint into the run's `release/` directory. Use the command below only to repeat an export or export a historical checkpoint.
+Keep the original pinned reference snapshot in `CLEFSIFT_MODEL` and the completed run directory in `RUN`.
 
-CPU merging needs enough RAM for the backbone and adapter merge.
+CPU merging uses Transformers and PEFT in the training environment. It needs enough RAM for the backbone and adapter merge. It accepts selected Unsloth checkpoints and historical adapter checkpoints.
 Plan disk space for the base weights, a roughly 55 GB merged release, a roughly 54 GB F16 file, and Q8.
 These sizes exclude checkpoints and temporary files.
 
 ```bash
 export CLEFSIFT_CHECKPOINT=$(python -c \
-  'import json; print(json.load(open("runs/v2/selection.json"))["checkpoint"])')
-clef-finetune merge --model "$CLEFSIFT_MODEL" \
-  --checkpoint "$CLEFSIFT_CHECKPOINT" --output releases/clefsift/reference \
-  --dtype bfloat16 --head-dtype float32
+  'import json, os; print(json.load(open(os.path.join(os.environ["RUN"], "selection.json")))["checkpoint"])')
+uv run --no-sync tools/clefsift export --model "$CLEFSIFT_MODEL" \
+  --checkpoint "$CLEFSIFT_CHECKPOINT" --out-dir releases/clefsift/reference \
+  --minutes <approved-export-wall-minutes>
 ```
 
-The trained decision head must remain FP32.
-The toolkit merge default is BF16. Do not omit `--head-dtype float32`.
-The toolkit merges on CPU, even on a GPU host.
+The export command requires a finite FP32 checkpoint head and writes it unchanged alongside the merged BF16 backbone. It preserves the original reference encoder and tokenizer files. It merges on CPU, keeps previous artifacts, and does not load or score any dataset.
+Do not substitute Unsloth's default merged save: it converts most head weights to BF16.
 
 Conversion used a separate environment with Python 3.11, torch 2.11.0, and transformers 4.57.6.
 Do not reuse an old llama.cpp tokenizer environment.
@@ -122,7 +121,7 @@ python finetune/evaluate.py http --data data/frozen/eval.jsonl \
   --base-url http://127.0.0.1:8002/v1 --model "$CLEFSIFT_Q8_MODEL_ID" \
   --out-dir reports/q8-matched --max-requests 188
 python finetune/evaluate.py compare --data data/frozen/eval.jsonl \
-  --reference runs/v2/step-128-matched/tuned_predictions.jsonl \
+  --reference "$RUN/step-128-matched/tuned_predictions.jsonl" \
   --candidate reports/q8-matched/tuned_predictions.jsonl \
   --out reports/q8-comparison.json
 ```

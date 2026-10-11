@@ -1,6 +1,6 @@
 # Recorded results and limits
 
-Training and export completed on 2026-10-06 UTC.
+Historical training and export completed on 2026-10-06 UTC, before the Unsloth migration. The replacement trainer has not yet completed a GPU validation run.
 These figures describe internal English validation with provisional labels.
 They do not establish LinkedIn accuracy or verified human authorship.
 The [model card](https://huggingface.co/spmurrayzzz/clefsift) records the published model details.

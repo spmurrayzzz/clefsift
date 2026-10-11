@@ -97,7 +97,7 @@ Use a new artifact directory on a filesystem with enough space. The following pa
 cd /path/to/clefsift
 export WORK=/path/to/corpus-work
 export CLEFSIFT_MODEL=<local-pinned-reference-snapshot>
-python finetune/corpus.py prepare --source "$WORK/source.jsonl" \
+uv run --no-sync python finetune/corpus.py prepare --source "$WORK/source.jsonl" \
   --model "$CLEFSIFT_MODEL" --quotas finetune/general-quotas.json \
   --reserve-fraction 0.10 --out-dir "$WORK/parents"
 python finetune/corpus.py plan --parents "$WORK/parents" \
@@ -151,7 +151,7 @@ python finetune/corpus.py run --plan-dir "$WORK/generation" \
   --split final_holdout --construct-final \
   --max-calls <approved-final-call-limit> --minutes <approved-wall-minutes> \
   --workers 4 --timeout 120
-python finetune/corpus.py assemble --parents "$WORK/parents" \
+uv run --no-sync python finetune/corpus.py assemble --parents "$WORK/parents" \
   --generation "$WORK/generation" --model "$CLEFSIFT_MODEL" \
   --out-dir "$WORK/frozen" --construct-final
 ```
@@ -180,7 +180,7 @@ This command reproduces [spmurrayzzz/clefsift-cleaned](https://huggingface.co/da
 
 `tools/corpus` now controls generation only. It calls `corpus.run` directly instead of chaining through `build_corpus.py`. Preparation and assembly remain separate commands above; neither training nor final-holdout generation starts automatically.
 
-The wrapper requires Linux, uv, an installed Python 3.11, and Pi. It selects a non-virtual Python through uv without downloads or package installs. Generation uses the standard library and Pi, not the old training environment. The preparation and assembly token counter still has its existing dependency; replacing that dependency is separate work.
+The wrapper requires Linux, uv, an installed Python 3.11, and Pi. It selects a non-virtual Python through uv without downloads or package installs. Generation uses the standard library and Pi, not the old training environment. Preparation and assembly use Transformers and the local reference encoder for token counting. They do not import Unsloth or load model weights.
 
 Use one JSON config. The default is `./corpus.json`, or set `CLEFSIFT_CORPUS_CONFIG`. `--config` accepts an explicit file before or after the command. Relative paths resolve from that file's directory:
 
@@ -224,16 +224,17 @@ The old build controller is removed. This is the first control-path cleanup, not
 
 Do not stop existing inference services without approval. Verify that the target GPU is idle before baseline evaluation or training.
 
-Use the approved host checkout and its existing uv environment. Keep large datasets, checkpoints, and logs on the selected artifact filesystem. Preserve previous runs and at least 30 GiB free space.
+Use the approved checkout and the [uv training setup](training.md#setup). Keep datasets, checkpoints, and logs on the selected artifact filesystem. Preserve previous runs and at least 30 GiB free space.
+
+Set `model.path`, `data.directory`, `output_dir`, `minutes`, and `train.num_train_epochs` in a local copy of the [recipe](../finetune/recipe-general.yaml). Paths resolve from that file. Then run:
 
 ```bash
-python finetune/run.py --data-dir "$WORK/frozen" --model "$CLEFSIFT_MODEL" \
-  --out-dir "$WORK/run-1" --epochs 1 --minutes <approved-training-wall-minutes> --gpu 0
+uv run --no-sync tools/clefsift train --config /path/to/recipe.yaml
 ```
 
-The general workflow requires an explicit `--epochs` value. Its separate [recipe](../finetune/recipe-general.yaml) saves every 5,000 steps. With 80,000 rows and gradient accumulation four, one epoch uses 20,000 optimizer steps and 80,000 row exposures. The toolkit shuffles without replacement per pass. The final step is saved even between save intervals.
+The general workflow requires explicit epochs. Its recipe saves every 5,000 steps. With 80,000 rows and a global batch of four, one epoch uses 20,000 optimizer steps. The final step is saved and evaluated even between save intervals. The historical 128-step recipe is never a fallback. See [multi-GPU training](training.md#multiple-gpus) for standard DDP launching and batch-size accounting.
 
-The runner evaluates the reference and checkpoints on validation. Selection uses fixed-four macro F1, then Brier score, then the earlier step. `selection.json` binds the selected checkpoint files, dataset manifest, configuration, and predictions. The runner ends with `selected-final-sealed`; it does not claim final evaluation is complete.
+Unsloth trains BF16 LoRA adapters and the FP32 decision head, then selects on validation. Selection uses fixed-four macro F1, then Brier score, then the earlier step. `selection.json` binds the selected checkpoint files, dataset manifest, configuration, and predictions. The runner exports the selected model and ends with `selected-final-sealed`; it does not claim final evaluation is complete.
 
 Default validation never opens or hashes the final-holdout file. It checks its text-free manifest group/hash inventory for overlap. Actual final-file integrity and scoring require a separately authorized step after selection. No automatic final-scoring command is provided yet.
 

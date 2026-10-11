@@ -209,11 +209,11 @@ def run_http(args, records):
 def main():
     parser = argparse.ArgumentParser(description="Evaluate four-label classification predictions.")
     commands = parser.add_subparsers(dest="command", required=True)
-    summarize = commands.add_parser("summarize", help="Summarize toolkit tuned_predictions.jsonl.")
+    summarize = commands.add_parser("summarize", help="Summarize tuned_predictions.jsonl.")
     http = commands.add_parser("http", help="Evaluate bounded, sequential SystemOne requests.")
     comparison = commands.add_parser("compare", help="Compare predictions on identical requests; drift is diagnostic.")
     for command in (summarize, http, comparison):
-        command.add_argument("--data", type=Path, required=True, help="Labeled toolkit request JSONL.")
+        command.add_argument("--data", type=Path, required=True, help="Labeled Clef request JSONL.")
     summarize.add_argument("--predictions", type=Path, required=True)
     summarize.add_argument("--out", type=Path, required=True)
     http.add_argument("--base-url", required=True, help="API base URL including /v1; HTTP only on localhost or loopback.")

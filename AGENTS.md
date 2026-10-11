@@ -3,7 +3,7 @@
 Read [README.md](README.md) and the affected guide in [docs/](docs/) before changes.
 
 - Keep extension code plain JavaScript and CSS. Do not add a build step or dependencies.
-- Keep Python wrappers stdlib-only, except for the existing training toolkit/tokenizer APIs and the approved Parquet/7z source readers in `finetune/requirements-ingest.txt`. Install readers only in a separate uv environment.
+- Keep Python wrappers stdlib-only, except for the Unsloth, Transformers, PEFT, tokenizer, and tensor APIs and the approved Parquet/7z source readers in `finetune/requirements-ingest.txt`. Install readers only in a separate uv environment.
 - Do not add code comments, tests, or unrelated features without a request.
 - Keep technical instructions short and direct. Update affected docs with code changes.
 - Preserve the extension permissions, `systemone_settings`, `systemone_history`, and `/v1/systemone` contract.
@@ -23,6 +23,8 @@ Read [README.md](README.md) and the affected guide in [docs/](docs/) before chan
 The corpus control path is now one config-driven generation runner in `control_corpus.py`; `build_corpus.py` is removed. `tools/corpus` uses a non-virtual Python 3.11 selected through uv, without downloads or installs. It does not use the legacy training environment. Default config is `./corpus.json`; explicit `--config` and `CLEFSIFT_CORPUS_CONFIG` work, with paths relative to the config. `concurrency` is the sole model/worker authority. Legacy approval, hash, import, model, and interpreter config fields are ignored. No approval file or build-contract check may be reintroduced. Each run executes a source/config snapshot; hashes are audit metadata. Keep PID birth/owner/session checks and duplicate-run locks. `stop` returns immediately; `--wait` waits visibly. Status uses the terminal summary, not stale sampled counters. Existing clocks and cumulative attempt counts survive restarts; final construction requires explicit `--construct-final`. Preparation and assembly remain separate; this CLI never trains.
 
 Normal generation resume reads small request/result/dispatch records and counts attempts. Do not restore repeated transcript hashing or acceptance checks on terminal results. Interrupted responses without a result use deep recovery; assembly keeps full verification. There is no new database or cache.
+
+Training uses Unsloth Core `FastDecisionModel` and `DecisionTrainer`, with standard `torchrun` DDP for multiple GPUs. Training dependencies live in `pyproject.toml`; uv owns the environment. Use the existing YAML recipes and native training arguments, not another config format, environment selector, or job controller. Only rank zero writes shared artifacts or exports. Do not restore the removed training toolkit or the separate evaluation-GPU scheduler. Token counting uses the local Cloudflare encoder without importing Unsloth. Preserve explicit dataset splits, reject input truncation, and keep the full trained head in FP32 when exporting with PEFT.
 
 ## Verification
 

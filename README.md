@@ -53,7 +53,14 @@ The simplified public export is [spmurrayzzz/clefsift-cleaned](https://huggingfa
 
 ## Train your model
 
-[Training](docs/training.md) covers the historical three-parent-label workflow and paired validation panels.
+[Training](docs/training.md) uses Unsloth `FastDecisionModel` and `DecisionTrainer`. Configure the existing [recipe](finetune/recipe-general.yaml), then run:
+
+```bash
+uv sync --locked --extra train
+uv run --no-sync tools/clefsift train
+```
+
+Each run trains, selects on validation, and exports the selected model. Use standard `torchrun` for multiple GPUs. Training and export do not start or replace a serving process.
 The new [general corpus workflow](docs/general-corpus.md) starts from human-only sources, generates through Pi, and keeps validation and final holdout separate.
 Every configured model generates remaining examples from a shared queue. Actual model contributions depend on throughput. The controller retries transient failures within the existing two-attempt limit; provider failures disable only that route. Each launch executes a source snapshot and preserves completed outputs and the original deadline. Generation does not automatically assemble data, start training, or access final-holdout text. Preparation and assembly interfaces remain separate in this first cleanup.
 [Export and serving](docs/serving.md) covers GGUF conversion and Q8 comparison.
@@ -80,7 +87,7 @@ See [results and limits](docs/results.md) before you interpret these figures.
 |---|---|
 | `extension/` | Manifest V3 extension, with no dependencies or build step |
 | `finetune/` | Preparation, generation, training, and evaluation tools |
-| `tools/clefsift` | Single entry point: `init`, `corpus`, `train`, `evaluate`, `demo` |
+| `tools/clefsift` | Single entry point: `init`, `corpus`, `train`, `export`, `evaluate`, `demo` |
 | `tools/mock_server.py` | Local interface demonstration |
 | `docs/` | [Extension and privacy](docs/extension.md), [training](docs/training.md), [serving](docs/serving.md), [results](docs/results.md) |
 
@@ -88,6 +95,6 @@ See [results and limits](docs/results.md) before you interpret these figures.
 
 [Apache-2.0](LICENSE). Copyright 2026 spmurrayzzz.
 
-Training uses the Apache-2.0 [clef-finetune](https://github.com/MersivMedia/clef-finetune) toolkit and Cloudflare Clef.
-These dependencies retain their own licenses. This project is not affiliated with Cloudflare or Mersiv Media.
+Training uses [Unsloth](https://unsloth.ai/docs/basics/train-your-own-decision-model-with-unsloth) and Cloudflare Clef.
+Dependencies retain their own licenses. This project is not affiliated with Cloudflare or Unsloth.
 Dataset license declarations do not establish rights in each source text.

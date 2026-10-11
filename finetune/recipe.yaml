@@ -1,28 +1,25 @@
 model:
-  path: Cloudflare/clef
+  path: ../models/clef
   revision: 2f3de3dd85f379784083b0814d997ab627200f0c
   dtype: bfloat16
 data:
-  train: ../data/frozen/train.jsonl
-  eval: ../data/frozen/eval.jsonl
+  directory: ../data/frozen
   max_length: 1536
 lora:
   r: 64
-  alpha: 128
-  dropout: 0.05
+  lora_alpha: 128
+  lora_dropout: 0.05
+decision:
+  head_learning_rate: 5.0e-5
+  label_smoothing: 0.05
+  brier_weight: 1.0
 train:
   seed: 0
   max_steps: 128
-  grad_accum: 4
-  lr: 1.0e-4
-  head_lr: 5.0e-5
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 4
+  learning_rate: 1.0e-4
   warmup_steps: 12
-  label_smoothing: 0.05
-  brier_weight: 1.0
-  ordinal_weight: 0.0
-  train_head: true
-  head_dtype: float32
-  gradient_checkpointing: true
-  augment_train: false
-  save_every: 64
-output_dir: runs/clefsift
+  save_steps: 64
+output_dir: ../runs/clefsift
+minutes: 90
