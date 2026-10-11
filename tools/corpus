@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+unset VIRTUAL_ENV CONDA_PREFIX PYTHONHOME PYTHONPATH
+PYTHON=$(uv python find --offline --no-project --system 3.11)
+exec uv run --offline --no-project --python "$PYTHON" python -B "$SCRIPT_DIR/../finetune/control_corpus.py" "$@"
