@@ -1,0 +1,29 @@
+{
+  "train": {
+    "news": 3000,
+    "reviews": 4000,
+    "qa": 5000,
+    "personal": 2000,
+    "professional": 2000,
+    "technical": 2000,
+    "discussion": 2000
+  },
+  "validation": {
+    "news": 300,
+    "reviews": 400,
+    "qa": 500,
+    "personal": 200,
+    "professional": 200,
+    "technical": 200,
+    "discussion": 200
+  },
+  "final_holdout": {
+    "news": 300,
+    "reviews": 400,
+    "qa": 500,
+    "personal": 200,
+    "professional": 200,
+    "technical": 200,
+    "discussion": 200
+  }
+}

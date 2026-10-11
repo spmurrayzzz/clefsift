@@ -1,0 +1,91 @@
+{
+  "status": "approved-exploratory-acquisition",
+  "workflow": "clefsift-general-v1",
+  "reviewed_at_utc": "2026-10-10",
+  "quotas": "general-quotas.json",
+  "archive_before": "2019-01-01",
+  "source_importers": "acquire.py and import_sources.py; separate pinned Parquet/7z reader environment",
+  "rights_policy": "User-approved exploratory use with provisional authorship and unresolved source-rights records. Preserve source-specific limitations and attribution; this approval does not establish underlying rights or verified human authorship. Do not publish raw text or transcripts.",
+  "sources": [
+    {
+      "id": "cnn-dailymail",
+      "domains": ["news"],
+      "dataset": "abisee/cnn_dailymail",
+      "revision": "96df5e686bee6baa90b8bee7c28b81fa3fa6223d",
+      "format": "parquet",
+      "source_dates": "CNN 2007-04 through 2015-04; Daily Mail 2010-06 through 2015-04",
+      "provenance": "Document IDs are hashes of source URLs; recover original URLs where possible and cluster syndicated duplicates",
+      "split_policy": "Preserve training; partition original validation into new validation and final holdout before generation; exclude original test",
+      "rights_status": "Publisher article rights require review; dataset Apache metadata is insufficient",
+      "metadata_url": "https://huggingface.co/datasets/abisee/cnn_dailymail/blob/96df5e686bee6baa90b8bee7c28b81fa3fa6223d/README.md",
+      "files": [
+        {"path": "3.0.0/train-00000-of-00003.parquet", "bytes": 256540614, "sha256": "a56093836f6283ceac48128515f6c87ade70abb11aec31d23a176c4d90ae1736"},
+        {"path": "3.0.0/train-00001-of-00003.parquet", "bytes": 256588241, "sha256": "7549c4f8f43c15750f4103aa3ec2966be1f3a51a990e60d97e3a1bac79f8802e"},
+        {"path": "3.0.0/train-00002-of-00003.parquet", "bytes": 259300551, "sha256": "ef3b5a190df25ac99592b802f070e244251553b78a5157a0c88fa19d8ef1a13b"},
+        {"path": "3.0.0/validation-00000-of-00001.parquet", "bytes": 34664725, "sha256": "65a5ccce932b08f050114ce6e3c39355d563fa24f194052bb2f27d1c6c499c91"}
+      ]
+    },
+    {
+      "id": "stackexchange-2018-12",
+      "domains": ["qa"],
+      "archive": "StackExchange2018-12",
+      "format": "7z archives containing XML",
+      "archive_date": "2018-12",
+      "provenance": "Post, thread, owner, revision, and duplicate-link IDs; verify snapshot content dates before selection",
+      "split_policy": "No official task splits; keep connected threads, duplicate links, and qualified known author IDs together",
+      "rights_status": "CC BY-SA version depends on contribution date; preserve attribution and assess derivative obligations",
+      "metadata_url": "https://archive.org/metadata/StackExchange2018-12",
+      "license_url": "https://stackoverflow.com/help/licensing",
+      "files": [
+        {"path": "academia.stackexchange.com.7z", "bytes": 100762550, "sha1": "91dfdbe73bc60399bd266b0e3d15921d82e98469"},
+        {"path": "cooking.stackexchange.com.7z", "bytes": 55437230, "sha1": "e836fc98084426bbd00e5fc2767be8f175c891fc"},
+        {"path": "history.stackexchange.com.7z", "bytes": 51503438, "sha1": "d95705bf10fd740abf4daecc30b136e662a098da"},
+        {"path": "money.stackexchange.com.7z", "bytes": 69097711, "sha1": "155a5731d438cb8ba9f692eaad8f71da0a25d2f0"},
+        {"path": "outdoors.stackexchange.com.7z", "bytes": 20944509, "sha1": "221a9764d12d4dba61da224505eb16cfe9f99b76"},
+        {"path": "parenting.stackexchange.com.7z", "bytes": 31736591, "sha1": "353d1acd1733b85fc5617c8c9191e539645db30f"},
+        {"path": "travel.stackexchange.com.7z", "bytes": 95903302, "sha1": "62a9552f838ee306fb856dc86c888ba9a9069be6"},
+        {"path": "workplace.stackexchange.com.7z", "bytes": 104385000, "sha1": "318903a6db17a2a2975429339ee587b1f0a80d41"}
+      ]
+    },
+    {
+      "id": "snap-amazon-2013",
+      "domains": ["reviews"],
+      "format": "gzip-compressed plaintext records",
+      "source_dates": "1995-06 through 2013-03",
+      "provenance": "Reviewer IDs, product IDs, dates; assign record IDs from source file hash and position; check merged-product duplicates",
+      "split_policy": "No official task splits; group known reviewers and duplicate review/product identities before assignment",
+      "rights_status": "Dataset page does not supply a clear redistribution license; requires review",
+      "metadata_url": "https://snap.stanford.edu/data/web-Amazon.html",
+      "approximate_download_bytes": 120000000,
+      "files": [
+        {"url": "https://snap.stanford.edu/data/amazon/Arts.txt.gz"},
+        {"url": "https://snap.stanford.edu/data/amazon/Gourmet_Foods.txt.gz"},
+        {"url": "https://snap.stanford.edu/data/amazon/Office_Products.txt.gz"},
+        {"url": "https://snap.stanford.edu/data/amazon/Pet_Supplies.txt.gz"}
+      ],
+      "integrity_status": "Record local SHA-256 after a separately approved acquisition; upstream hashes not yet established"
+    },
+    {
+      "id": "fineweb-2018-30",
+      "domains": ["personal", "professional", "technical", "discussion"],
+      "dataset": "HuggingFaceFW/fineweb",
+      "revision": "9bb295ddab0e05d785b879661af7260fed5140fc",
+      "format": "parquet",
+      "archive_date": "2018-07",
+      "provenance": "Common Crawl UUID, URL, capture timestamp, dump and WARC path; verify every selected capture date",
+      "split_policy": "Unsplit corpus; group canonical URLs, duplicate pages and identified author/thread clusters before assignment",
+      "rights_status": "ODC-BY and Common Crawl terms apply; underlying webpage rights require review",
+      "metadata_url": "https://huggingface.co/datasets/HuggingFaceFW/fineweb/blob/9bb295ddab0e05d785b879661af7260fed5140fc/README.md",
+      "files": [
+        {"path": "data/CC-MAIN-2018-30/000_00000.parquet", "bytes": 2148507937, "sha256": "335d7bd9dac7f5fcd885a37b5ac1c096b4d20b27d521bc90e07d35e7eaa1aacd"}
+      ],
+      "selection_status": "Per-domain filtered yields are unverified; stop on shortfall rather than silently replacing quotas"
+    }
+  ],
+  "excluded_candidates": {
+    "amazon_reviews_multi": "Defunct and restrictive; do not substitute mirrors",
+    "blog_authorship_corpus": "Noncommercial research restriction",
+    "wikitext": "Only 60 official validation articles and limited author/revision provenance; not needed for this first proposed mix",
+    "cornell_cmv": "Official heldout and conversion differences need a separate protocol; not needed for this first proposed mix"
+  }
+}
